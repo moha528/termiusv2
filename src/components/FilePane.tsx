@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Clipboard } from "@/components/SftpView";
 import type { FileEntry } from "@/lib/bindings/FileEntry";
+import { withToast } from "@/lib/feedback";
 import {
   DRAG_MIME,
   type FileDragPayload,
@@ -254,10 +255,19 @@ export function FilePane({
   // ---- Bulk delete ----
   const deleteSelected = async () => {
     if (!path || selectedEntries.length === 0) return;
+    const items = selectedEntries;
+    const label =
+      items.length === 1
+        ? `Suppression de « ${items[0].name} »`
+        : `Suppression de ${items.length} éléments`;
     try {
-      for (const entry of selectedEntries) {
-        await adapter.remove(joinPath(adapter, path, entry.name));
-      }
+      await withToast(
+        Promise.all(items.map((e) => adapter.remove(joinPath(adapter, path, e.name)))),
+        {
+          loading: label,
+          success: items.length === 1 ? "Supprimé" : `${items.length} éléments supprimés`,
+        },
+      );
       refresh();
     } catch (e) {
       setError(String(e));
@@ -503,7 +513,10 @@ export function FilePane({
         confirmText="Créer"
         onConfirm={async (name) => {
           if (!path) return;
-          await adapter.mkdir(joinPath(adapter, path, name));
+          await withToast(adapter.mkdir(joinPath(adapter, path, name)), {
+            loading: `Création de « ${name} »`,
+            success: "Dossier créé",
+          });
           refresh();
         }}
       />
@@ -516,7 +529,10 @@ export function FilePane({
         confirmText="Créer"
         onConfirm={async (name) => {
           if (!path) return;
-          await adapter.createFile(joinPath(adapter, path, name));
+          await withToast(adapter.createFile(joinPath(adapter, path, name)), {
+            loading: `Création de « ${name} »`,
+            success: "Fichier créé",
+          });
           refresh();
         }}
       />
@@ -532,7 +548,10 @@ export function FilePane({
           if (!path || dialog.kind !== "rename") return;
           const from = joinPath(adapter, path, dialog.entry.name);
           const to = joinPath(adapter, path, newName);
-          await adapter.rename(from, to);
+          await withToast(adapter.rename(from, to), {
+            loading: `Renommage en « ${newName} »`,
+            success: "Renommé",
+          });
           refresh();
         }}
       />

@@ -2,6 +2,7 @@ import { Server } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
+import { withToast } from "@/lib/feedback";
 import { keyvaultApi } from "@/lib/keyvault";
 import type { SessionTabType } from "@/stores/useSessionsStore";
 import { useSessionsStore } from "@/stores/useSessionsStore";
@@ -82,7 +83,10 @@ export function ConnectDialog({ target, onOpenChange }: Props) {
             setSubmitting(true);
             setError(null);
             try {
-              await openTab(host, password, tabType);
+              await withToast(openTab(host, password, tabType), {
+                loading: `Connexion à ${host.label}…`,
+                success: tabType === "sftp" ? "SFTP ouvert" : "Connecté",
+              });
               if (remember) {
                 await keyvaultApi.save(host.id, password);
               } else if (savedKnown) {

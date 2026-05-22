@@ -1,6 +1,7 @@
 import { Plus, Server, Terminal as TerminalIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { withToast } from "@/lib/feedback";
 import { keyvaultApi } from "@/lib/keyvault";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 import type { SessionTabType } from "@/stores/useSessionsStore";
@@ -62,7 +63,10 @@ export function MainLayout() {
         return;
       }
       try {
-        await openTab(host, saved, type);
+        await withToast(openTab(host, saved, type), {
+          loading: `Connexion à ${host.label}…`,
+          success: type === "sftp" ? "SFTP ouvert" : "Connecté",
+        });
       } catch (e) {
         console.warn("auto-connect failed, prompting:", e);
         await keyvaultApi.delete(host.id);

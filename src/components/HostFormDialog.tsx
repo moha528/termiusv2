@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import type { Host } from "@/lib/bindings/Host";
 import type { HostInput } from "@/lib/bindings/HostInput";
+import { withToast } from "@/lib/feedback";
 import { useServersStore } from "@/stores/useServersStore";
 
 import { Button } from "./ui/Button";
@@ -57,9 +58,15 @@ export function HostFormDialog({ open, onOpenChange, host }: Props) {
       group_id: host?.group_id ?? null,
     };
     if (host) {
-      await update(host.id, input);
+      await withToast(update(host.id, input), {
+        loading: `Mise à jour de « ${input.label} »`,
+        success: "Serveur mis à jour",
+      });
     } else {
-      await create(input);
+      await withToast(create(input), {
+        loading: `Création de « ${input.label} »`,
+        success: "Serveur créé",
+      });
     }
     onOpenChange(false);
   });

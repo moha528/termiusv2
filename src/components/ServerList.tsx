@@ -2,6 +2,7 @@ import { Server } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
+import { withToast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 import { useServersStore } from "@/stores/useServersStore";
 import type { SessionTabType } from "@/stores/useSessionsStore";
@@ -187,7 +188,10 @@ export function ServerList({ onOpenSession, query = "" }: Props) {
                 type="button"
                 onClick={async () => {
                   if (confirmDelete) {
-                    await remove(confirmDelete.id);
+                    await withToast(remove(confirmDelete.id), {
+                      loading: `Suppression de « ${confirmDelete.label} »`,
+                      success: "Serveur supprimé",
+                    });
                     setConfirmDelete(null);
                   }
                 }}

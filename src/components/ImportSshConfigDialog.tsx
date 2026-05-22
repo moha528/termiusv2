@@ -2,6 +2,7 @@ import { AlertCircle, Download, FileText, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { SshConfigImportEntry } from "@/lib/bindings/SshConfigImportEntry";
+import { withToast } from "@/lib/feedback";
 import { importApi } from "@/lib/import";
 import { cn } from "@/lib/utils";
 import { useServersStore } from "@/stores/useServersStore";
@@ -75,9 +76,15 @@ export function ImportSshConfigDialog({ open, onOpenChange }: Props) {
     if (state.kind !== "loaded") return;
     setSubmitting(true);
     try {
-      await importApi.importSshConfig(Array.from(selected));
+      const created = await withToast(importApi.importSshConfig(Array.from(selected)), {
+        loading: `Import de ${selected.size} entrée${selected.size > 1 ? "s" : ""}…`,
+        success: (hosts) =>
+          hosts.length === 0
+            ? "Rien à importer"
+            : `${hosts.length} serveur${hosts.length > 1 ? "s" : ""} importé${hosts.length > 1 ? "s" : ""}`,
+      });
       await refresh();
-      onOpenChange(false);
+      if (created.length > 0) onOpenChange(false);
     } catch (e) {
       setState({ kind: "error", message: String(e) });
     } finally {
