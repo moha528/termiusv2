@@ -40,8 +40,17 @@ export function TerminalView({ sessionId, onClosed }: Props) {
     const term = new Terminal({
       fontFamily: '"JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace',
       fontSize: 13,
+      fontWeight: 400,
+      fontWeightBold: 600,
+      letterSpacing: 0,
+      lineHeight: 1.2,
       cursorBlink: true,
+      cursorStyle: "bar",
+      cursorWidth: 2,
+      scrollback: 10_000,
       allowTransparency: false,
+      // Small padding inside the viewport so text doesn't touch the edges
+      // (xterm.js has no native padding option — we wrap the host div).
       theme: getTheme(useSettingsStore.getState().terminalTheme),
     });
     termRef.current = term;
@@ -102,5 +111,18 @@ export function TerminalView({ sessionId, onClosed }: Props) {
     }
   }, [themeId]);
 
-  return <div ref={hostRef} className="h-full w-full" />;
+  const bg = getTheme(themeId).background ?? "transparent";
+
+  return (
+    <div
+      className="h-full w-full overflow-hidden"
+      style={{
+        background: bg,
+        // Inset padding: 12 px on top/bottom, 14 on sides for comfortable reading.
+        padding: "10px 14px",
+      }}
+    >
+      <div ref={hostRef} className="h-full w-full" />
+    </div>
+  );
 }

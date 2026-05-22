@@ -12,6 +12,8 @@ import type { ITheme } from "@xterm/xterm";
  */
 
 export type ThemeId =
+  | "catppuccin-mocha"
+  | "catppuccin-latte"
   | "tokyo-night"
   | "dracula"
   | "solarized-dark"
@@ -63,6 +65,100 @@ export type AppTheme = {
 };
 
 export const TERMINAL_THEMES: Record<ThemeId, AppTheme> = {
+  "catppuccin-mocha": {
+    id: "catppuccin-mocha",
+    name: "Catppuccin Mocha",
+    appearance: "dark",
+    app: {
+      "--color-bg": "#1e1e2e",
+      "--color-bg-soft": "#181825",
+      "--color-panel": "#27273a",
+      "--color-panel-hover": "#313244",
+      "--color-elevated": "#45475a",
+      "--color-border": "#313244",
+      "--color-border-strong": "#45475a",
+      "--color-text": "#cdd6f4",
+      "--color-text-soft": "#bac2de",
+      "--color-muted": "#9399b2",
+      "--color-muted-soft": "#7f849c",
+      "--color-accent": "#89b4fa",
+      "--color-accent-soft": "#74a8d9",
+      "--color-accent-bg": "#1e283d",
+      "--color-success": "#a6e3a1",
+      "--color-warning": "#f9e2af",
+      "--color-danger": "#f38ba8",
+    },
+    terminal: {
+      background: "#1e1e2e",
+      foreground: "#cdd6f4",
+      cursor: "#f5e0dc",
+      cursorAccent: "#1e1e2e",
+      selectionBackground: "#585b7080",
+      black: "#45475a",
+      red: "#f38ba8",
+      green: "#a6e3a1",
+      yellow: "#f9e2af",
+      blue: "#89b4fa",
+      magenta: "#f5c2e7",
+      cyan: "#94e2d5",
+      white: "#bac2de",
+      brightBlack: "#585b70",
+      brightRed: "#f38ba8",
+      brightGreen: "#a6e3a1",
+      brightYellow: "#f9e2af",
+      brightBlue: "#89b4fa",
+      brightMagenta: "#f5c2e7",
+      brightCyan: "#94e2d5",
+      brightWhite: "#a6adc8",
+    },
+  },
+  "catppuccin-latte": {
+    id: "catppuccin-latte",
+    name: "Catppuccin Latte",
+    appearance: "light",
+    app: {
+      "--color-bg": "#eff1f5",
+      "--color-bg-soft": "#e6e9ef",
+      "--color-panel": "#ccd0da",
+      "--color-panel-hover": "#bcc0cc",
+      "--color-elevated": "#acb0be",
+      "--color-border": "#ccd0da",
+      "--color-border-strong": "#acb0be",
+      "--color-text": "#4c4f69",
+      "--color-text-soft": "#5c5f77",
+      "--color-muted": "#6c6f85",
+      "--color-muted-soft": "#8c8fa1",
+      "--color-accent": "#1e66f5",
+      "--color-accent-soft": "#1953c4",
+      "--color-accent-bg": "#cad7f7",
+      "--color-success": "#40a02b",
+      "--color-warning": "#df8e1d",
+      "--color-danger": "#d20f39",
+    },
+    terminal: {
+      background: "#eff1f5",
+      foreground: "#4c4f69",
+      cursor: "#dc8a78",
+      cursorAccent: "#eff1f5",
+      selectionBackground: "#acb0be80",
+      black: "#5c5f77",
+      red: "#d20f39",
+      green: "#40a02b",
+      yellow: "#df8e1d",
+      blue: "#1e66f5",
+      magenta: "#ea76cb",
+      cyan: "#179299",
+      white: "#acb0be",
+      brightBlack: "#6c6f85",
+      brightRed: "#d20f39",
+      brightGreen: "#40a02b",
+      brightYellow: "#df8e1d",
+      brightBlue: "#1e66f5",
+      brightMagenta: "#ea76cb",
+      brightCyan: "#179299",
+      brightWhite: "#bcc0cc",
+    },
+  },
   "tokyo-night": {
     id: "tokyo-night",
     name: "Tokyo Night",
@@ -290,7 +386,7 @@ export const TERMINAL_THEMES: Record<ThemeId, AppTheme> = {
   },
 };
 
-export const DEFAULT_THEME: ThemeId = "tokyo-night";
+export const DEFAULT_THEME: ThemeId = "catppuccin-mocha";
 
 export function getTheme(id: string | undefined): ITheme {
   if (id && id in TERMINAL_THEMES) {
