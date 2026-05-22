@@ -133,9 +133,10 @@ mod tests {
         verify_or_record(&pool, "host.example.com", 22, "SHA256:aaa", "ssh-ed25519")
             .await
             .unwrap();
-        let outcome = verify_or_record(&pool, "host.example.com", 2222, "SHA256:bbb", "ssh-ed25519")
-            .await
-            .expect("verify");
+        let outcome =
+            verify_or_record(&pool, "host.example.com", 2222, "SHA256:bbb", "ssh-ed25519")
+                .await
+                .expect("verify");
         assert_eq!(outcome, TofuOutcome::FirstSeen);
     }
 

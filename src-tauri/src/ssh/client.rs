@@ -147,7 +147,7 @@ impl Session {
 
     /// Send a graceful `Disconnect` to the peer. Idempotent in the sense that
     /// calling it twice on the same session simply returns the second error.
-    pub async fn close(mut self) -> Result<()> {
+    pub async fn close(self) -> Result<()> {
         self.handle
             .disconnect(russh::Disconnect::ByApplication, "bye", "en")
             .await
@@ -177,7 +177,9 @@ impl client::Handler for Handler {
         &mut self,
         server_public_key: &PublicKey,
     ) -> std::result::Result<bool, Self::Error> {
-        let fp = server_public_key.fingerprint(Default::default()).to_string();
+        let fp = server_public_key
+            .fingerprint(Default::default())
+            .to_string();
         let algo = server_public_key.algorithm().as_str().to_string();
 
         match known_hosts::verify_or_record(&self.pool, &self.host, self.port, &fp, &algo).await {
@@ -205,13 +207,6 @@ impl client::Handler for Handler {
                 Err(russh::Error::SendError)
             }
         }
-    }
-}
-
-/// Translate connect errors into anyhow without losing the typed variant.
-impl From<SshError> for anyhow::Error {
-    fn from(value: SshError) -> Self {
-        anyhow!(value.to_string())
     }
 }
 
@@ -266,12 +261,7 @@ mod tests {
         let mut acc = Vec::new();
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
         while tokio::time::Instant::now() < deadline {
-            match tokio::time::timeout(
-                std::time::Duration::from_millis(200),
-                rx.recv(),
-            )
-            .await
-            {
+            match tokio::time::timeout(std::time::Duration::from_millis(200), rx.recv()).await {
                 Ok(Some(chunk)) => acc.extend_from_slice(&chunk),
                 Ok(None) => break,
                 Err(_) => {}

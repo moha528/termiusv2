@@ -109,20 +109,19 @@ async fn drive(
                 }
                 Some(Cmd::Close) | None => break,
             },
-            msg = channel.wait() => match msg {
-                Some(ChannelMsg::Data { ref data }) => {
-                    if data_tx.send(data.to_vec()).is_err() {
+            msg = channel.wait() => {
+                let bytes = match msg {
+                    Some(ChannelMsg::Data { ref data })
+                    | Some(ChannelMsg::ExtendedData { ref data, .. }) => Some(data.to_vec()),
+                    Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
+                    _ => None,
+                };
+                if let Some(chunk) = bytes {
+                    if data_tx.send(chunk).is_err() {
                         break;
                     }
                 }
-                Some(ChannelMsg::ExtendedData { ref data, .. }) => {
-                    if data_tx.send(data.to_vec()).is_err() {
-                        break;
-                    }
-                }
-                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
-                _ => {}
-            },
+            }
         }
     }
 

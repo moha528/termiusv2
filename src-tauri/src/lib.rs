@@ -33,6 +33,7 @@ pub fn run() {
                 store::init_pool(&db_path).await.expect("init sqlite pool")
             });
             app.manage(pool);
+            app.manage(ssh::SessionManager::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -40,6 +41,10 @@ pub fn run() {
             commands::hosts::create_host,
             commands::hosts::update_host,
             commands::hosts::delete_host,
+            commands::sessions::open_ssh_session,
+            commands::sessions::send_terminal_input,
+            commands::sessions::resize_terminal,
+            commands::sessions::close_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
