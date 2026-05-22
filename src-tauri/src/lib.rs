@@ -8,6 +8,7 @@ pub mod error;
 pub mod import;
 pub mod keyvault;
 pub mod models;
+pub mod sftp;
 pub mod ssh;
 pub mod store;
 #[cfg(target_os = "windows")]
@@ -64,6 +65,11 @@ pub fn run() {
             commands::import::read_ssh_config,
             commands::import::read_ssh_config_at,
             commands::import::import_ssh_config,
+            commands::sftp::sftp_list_dir,
+            commands::sftp::sftp_stat,
+            commands::sftp::sftp_mkdir,
+            commands::sftp::sftp_remove,
+            commands::sftp::sftp_rename,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

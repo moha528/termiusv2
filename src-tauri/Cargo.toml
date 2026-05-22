@@ -30,6 +30,7 @@ ts-rs = { version = "10", features = ["serde-compat", "uuid-impl", "chrono-impl"
 # SSH — `ring` backend evite la chaine NASM/AWS-LC sur Windows ; aucune perte
 # fonctionnelle pour notre scope.
 russh = { version = "0.61", default-features = false, features = ["ring"] }
+russh-sftp = "2"
 
 # OS keychain (Windows Credential Manager / macOS Keychain / Linux Secret Service)
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }

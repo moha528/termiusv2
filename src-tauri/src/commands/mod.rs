@@ -7,3 +7,4 @@ pub mod import;
 pub mod keyvault;
 pub mod sessions;
 pub mod settings;
+pub mod sftp;

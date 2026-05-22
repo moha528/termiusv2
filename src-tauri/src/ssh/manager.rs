@@ -13,16 +13,18 @@ use uuid::Uuid;
 
 use super::pty::PtyChannel;
 use super::Session;
+use crate::sftp::SftpClient;
 
-/// A live SSH session and its (optional) primary PTY.
+/// A live SSH session and its (optional) primary PTY + SFTP subsystem.
 ///
-/// We keep the session and PTY together so the manager can tear both down
-/// atomically. Future tickets (split panes, SFTP) will add side channels
-/// pointing back to the same `Arc<Session>` slot.
+/// The SFTP client is lazy: it is allocated on the first `sftp_*` command and
+/// reused across subsequent calls for the same tab, since opening a new SFTP
+/// subsystem channel for every directory listing would add a round-trip.
 pub struct SessionEntry {
     pub id: Uuid,
     pub session: Session,
     pub pty: Option<PtyChannel>,
+    pub sftp: Option<SftpClient>,
 }
 
 impl SessionEntry {
@@ -31,6 +33,7 @@ impl SessionEntry {
             id,
             session,
             pty: None,
+            sftp: None,
         }
     }
 }
