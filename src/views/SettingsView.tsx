@@ -18,31 +18,30 @@ export function SettingsView({ open, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-40 flex bg-black/50 backdrop-blur-sm">
       <button
         type="button"
         aria-label="Close settings"
         onClick={onClose}
         className="flex-1 cursor-default"
       />
-      <aside className="flex h-full w-[460px] flex-col border-l border-(--color-border-strong) bg-(--color-panel) shadow-2xl shadow-black/40">
-        <header className="flex h-11 items-center justify-between border-b border-(--color-border) px-4">
-          <h2 className="text-sm font-semibold tracking-tight">Réglages</h2>
+      <aside className="flex h-full w-[400px] flex-col border-l border-(--color-border-strong) bg-(--color-panel) shadow-2xl shadow-black/40">
+        <header className="flex h-10 shrink-0 items-center justify-between border-b border-(--color-border) px-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-(--color-muted)">
+            Réglages
+          </h2>
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="rounded-md p-1.5 text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+            className="rounded p-1 text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text)"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4">
-          <Section
-            title="Apparence de l'application"
-            description="Couleurs de la barre latérale, des dialogs et de la zone principale."
-          >
+        <div className="flex-1 overflow-y-auto p-3">
+          <Section title="Apparence" subtitle="Sidebar, dialogs, zone principale">
             <ThemeGrid
               selectedId={appTheme}
               onSelect={(id) => setSetting("appTheme", id)}
@@ -50,10 +49,7 @@ export function SettingsView({ open, onClose }: Props) {
             />
           </Section>
 
-          <Section
-            title="Thème du terminal"
-            description="Indépendant de l'apparence de l'app — applique uniquement aux sessions SSH."
-          >
+          <Section title="Terminal" subtitle="Sessions SSH — indépendant de l'app">
             <ThemeGrid
               selectedId={terminalTheme}
               onSelect={(id) => setSetting("terminalTheme", id)}
@@ -61,29 +57,14 @@ export function SettingsView({ open, onClose }: Props) {
             />
           </Section>
 
-          <Section
-            title="Explorateur de fichiers"
-            description="Affichage des fichiers SFTP / local."
-          >
-            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-(--color-border) bg-(--color-bg-soft) p-3">
-              <span className="flex flex-col text-sm">
-                <span className="font-medium">Afficher les fichiers cachés</span>
-                <span className="text-xs text-(--color-muted)">
-                  Inclut les entrées commençant par « . »
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={showHidden}
-                onChange={(e) => setSetting("showHiddenFiles", e.currentTarget.checked)}
-                className="h-4 w-4 cursor-pointer"
-              />
-            </label>
+          <Section title="Fichiers">
+            <Toggle
+              label="Afficher les fichiers cachés"
+              description="Inclut les entrées « .xxx »"
+              checked={showHidden}
+              onChange={(v) => setSetting("showHiddenFiles", v)}
+            />
           </Section>
-
-          <p className="mt-6 text-[11px] italic text-(--color-muted-soft)">
-            La page Settings complète arrive en P4-T11 (kbd, sécurité, sync, etc.).
-          </p>
         </div>
       </aside>
     </div>
@@ -92,20 +73,20 @@ export function SettingsView({ open, onClose }: Props) {
 
 function Section({
   title,
-  description,
+  subtitle,
   children,
 }: {
   title: string;
-  description?: string;
+  subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-6 grid gap-3">
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-(--color-muted)">
+    <section className="mb-4">
+      <div className="mb-2 flex items-baseline justify-between">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-(--color-muted)">
           {title}
         </h3>
-        {description && <p className="mt-0.5 text-xs text-(--color-muted-soft)">{description}</p>}
+        {subtitle && <span className="text-[10px] text-(--color-muted-soft)">{subtitle}</span>}
       </div>
       {children}
     </section>
@@ -122,7 +103,7 @@ function ThemeGrid({
   renderPreview: (theme: (typeof TERMINAL_THEMES)[ThemeId]) => React.ReactNode;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-2 gap-1.5">
       {(Object.entries(TERMINAL_THEMES) as [ThemeId, (typeof TERMINAL_THEMES)[ThemeId]][]).map(
         ([id, t]) => {
           const selected = selectedId === id;
@@ -131,16 +112,17 @@ function ThemeGrid({
               key={id}
               type="button"
               onClick={() => onSelect(id)}
+              title={t.name}
               className={cn(
-                "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors",
+                "group relative flex items-center gap-2 overflow-hidden rounded-md border px-2 py-1.5 text-left transition-all",
                 selected
-                  ? "border-(--color-accent) bg-(--color-accent-bg)/40"
-                  : "border-(--color-border) bg-(--color-bg-soft) hover:bg-(--color-panel-hover)",
+                  ? "border-(--color-accent) bg-(--color-accent-bg)/30 ring-1 ring-(--color-accent)/30"
+                  : "border-(--color-border) bg-(--color-bg-soft) hover:border-(--color-border-strong) hover:bg-(--color-panel-hover)",
               )}
             >
               {renderPreview(t)}
-              <span className="flex-1 text-sm">{t.name}</span>
-              {selected && <Check className="h-4 w-4 shrink-0 text-(--color-accent)" />}
+              <span className="min-w-0 flex-1 truncate text-xs font-medium">{t.name}</span>
+              {selected && <Check className="h-3 w-3 shrink-0 text-(--color-accent)" />}
             </button>
           );
         },
@@ -152,45 +134,85 @@ function ThemeGrid({
 function TerminalPreview({
   theme,
 }: {
-  theme: { background?: string; foreground?: string; cursor?: string };
+  theme: {
+    background?: string;
+    foreground?: string;
+    cursor?: string;
+    blue?: string;
+    magenta?: string;
+    green?: string;
+  };
 }) {
+  // Compact 24×24 swatch made of 4 quadrants to hint at the palette.
   return (
     <div
-      className="grid h-10 w-14 grid-cols-3 overflow-hidden rounded-md border border-(--color-border)"
+      className="grid h-6 w-6 shrink-0 grid-cols-2 grid-rows-2 overflow-hidden rounded-sm border border-black/20"
       style={{ background: theme.background }}
       aria-hidden
     >
-      <span className="border-r" style={{ borderColor: theme.foreground, opacity: 0.3 }} />
-      <span className="border-r" style={{ borderColor: theme.cursor, opacity: 0.5 }} />
-      <span />
+      <span style={{ background: theme.foreground, opacity: 0.85 }} />
+      <span style={{ background: theme.blue ?? theme.cursor }} />
+      <span style={{ background: theme.magenta ?? theme.cursor }} />
+      <span style={{ background: theme.green ?? theme.foreground }} />
     </div>
   );
 }
 
 function AppPreview({ palette }: { palette: Record<string, string> }) {
-  // Mini representation: window bg + sidebar bg + accent dot
   return (
     <div
-      className="flex h-10 w-14 overflow-hidden rounded-md border"
+      className="flex h-6 w-6 shrink-0 overflow-hidden rounded-sm border"
       style={{
         borderColor: palette["--color-border-strong"],
         background: palette["--color-bg"],
       }}
       aria-hidden
     >
-      <div
-        className="w-1/3 border-r"
-        style={{
-          background: palette["--color-bg-soft"],
-          borderColor: palette["--color-border"],
-        }}
-      />
-      <div className="flex flex-1 items-end justify-end p-1">
+      <div className="w-1/3" style={{ background: palette["--color-bg-soft"] }} />
+      <div className="flex flex-1 items-end justify-end p-0.5">
         <span
-          className="block h-2 w-2 rounded-full"
+          className="block h-1.5 w-1.5 rounded-full"
           style={{ background: palette["--color-accent"] }}
         />
       </div>
     </div>
+  );
+}
+
+function Toggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between gap-2 rounded-md border border-(--color-border) bg-(--color-bg-soft) px-3 py-2 text-left hover:bg-(--color-panel-hover)"
+    >
+      <span className="flex min-w-0 flex-col">
+        <span className="text-xs font-medium text-(--color-text)">{label}</span>
+        {description && <span className="text-[10px] text-(--color-muted)">{description}</span>}
+      </span>
+      <span
+        className={cn(
+          "relative h-4 w-7 shrink-0 rounded-full transition-colors",
+          checked ? "bg-(--color-accent)" : "bg-(--color-elevated)",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all",
+            checked ? "left-3.5" : "left-0.5",
+          )}
+        />
+      </span>
+    </button>
   );
 }
