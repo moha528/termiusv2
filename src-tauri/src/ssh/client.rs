@@ -59,7 +59,9 @@ pub struct ConnectParams<'a> {
 /// Dropping a `Session` does NOT close the underlying TCP connection cleanly —
 /// callers should call [`Session::close`] to send a proper `Disconnect`.
 pub struct Session {
-    handle: Handle<Handler>,
+    /// `Arc` so background tasks (transfers, side-channels) can hold a strong
+    /// reference without forcing a `Clone` impl on the russh `Handler`.
+    handle: Arc<Handle<Handler>>,
     /// (hostname, port) the session is bound to, for diagnostics.
     endpoint: (String, u16),
 }
@@ -107,7 +109,7 @@ impl Session {
         }
 
         Ok(Session {
-            handle,
+            handle: Arc::new(handle),
             endpoint: (params.hostname.to_string(), params.port),
         })
     }
@@ -140,13 +142,14 @@ impl Session {
         Ok(PtyChannel::spawn(channel))
     }
 
-    /// Borrow the underlying russh handle (escape hatch for future tickets).
-    pub fn handle(&self) -> &Handle<Handler> {
+    /// Borrow the underlying russh handle. Returns `&Arc<...>` so callers
+    /// can either deref to `&Handle` or `.clone()` the `Arc` for background
+    /// tasks (file transfers, secondary channels) that outlive the lock.
+    pub fn handle(&self) -> &Arc<Handle<Handler>> {
         &self.handle
     }
 
-    /// Send a graceful `Disconnect` to the peer. Idempotent in the sense that
-    /// calling it twice on the same session simply returns the second error.
+    /// Send a graceful `Disconnect` to the peer.
     pub async fn close(self) -> Result<()> {
         self.handle
             .disconnect(russh::Disconnect::ByApplication, "bye", "en")

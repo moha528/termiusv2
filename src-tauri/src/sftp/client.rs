@@ -5,16 +5,25 @@
 //! reference-counted (it wraps a tokio task), so we keep one client per
 //! `Session` and reuse it for every SFTP command.
 
+use std::path::Path;
 use std::time::{Duration, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use std::sync::Arc;
+
 use russh::client::Handle;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::FileAttributes;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::models::FileEntry;
 use crate::ssh::client::Handler;
+
+/// Size of the chunks we copy between disk and SFTP. Larger than 32 KiB to
+/// amortize round-trips, smaller than the default sftp packet so it never
+/// gets fragmented twice.
+pub const TRANSFER_BUF_SIZE: usize = 64 * 1024;
 
 /// Owning handle to an SFTP subsystem channel.
 pub struct SftpClient {
@@ -23,7 +32,7 @@ pub struct SftpClient {
 
 impl SftpClient {
     /// Open a new SFTP subsystem on the given SSH session handle.
-    pub async fn open(handle: &Handle<Handler>) -> Result<Self> {
+    pub async fn open(handle: &Arc<Handle<Handler>>) -> Result<Self> {
         let channel = handle
             .channel_open_session()
             .await
@@ -110,6 +119,85 @@ impl SftpClient {
             .rename(from.to_string(), to.to_string())
             .await
             .with_context(|| format!("rename {from} -> {to}"))
+    }
+
+    /// Stream `local` → `remote`. Calls `on_progress(bytes_done, total)` every
+    /// chunk, so the caller can decide how often to forward updates to the UI.
+    pub async fn upload<F>(&self, local: &Path, remote: &str, mut on_progress: F) -> Result<u64>
+    where
+        F: FnMut(u64, u64) + Send,
+    {
+        let metadata = tokio::fs::metadata(local)
+            .await
+            .with_context(|| format!("stat local {}", local.display()))?;
+        let total = metadata.len();
+
+        let mut source = tokio::fs::File::open(local)
+            .await
+            .with_context(|| format!("open local {}", local.display()))?;
+        let mut sink = self
+            .inner
+            .create(remote.to_string())
+            .await
+            .with_context(|| format!("create remote {remote}"))?;
+
+        let mut buf = vec![0u8; TRANSFER_BUF_SIZE];
+        let mut transferred = 0u64;
+        loop {
+            let n = source.read(&mut buf).await.context("read local")?;
+            if n == 0 {
+                break;
+            }
+            sink.write_all(&buf[..n]).await.context("write remote")?;
+            transferred += n as u64;
+            on_progress(transferred, total);
+        }
+        sink.shutdown().await.context("shutdown remote file")?;
+        Ok(transferred)
+    }
+
+    /// Stream `remote` → `local`. Same progress contract as [`Self::upload`].
+    pub async fn download<F>(&self, remote: &str, local: &Path, mut on_progress: F) -> Result<u64>
+    where
+        F: FnMut(u64, u64) + Send,
+    {
+        let attrs = self
+            .inner
+            .metadata(remote.to_string())
+            .await
+            .with_context(|| format!("stat remote {remote}"))?;
+        let total = attrs.size.unwrap_or(0);
+
+        if let Some(parent) = local.parent() {
+            if !parent.as_os_str().is_empty() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .with_context(|| format!("mkdir -p {}", parent.display()))?;
+            }
+        }
+
+        let mut source = self
+            .inner
+            .open(remote.to_string())
+            .await
+            .with_context(|| format!("open remote {remote}"))?;
+        let mut sink = tokio::fs::File::create(local)
+            .await
+            .with_context(|| format!("create local {}", local.display()))?;
+
+        let mut buf = vec![0u8; TRANSFER_BUF_SIZE];
+        let mut transferred = 0u64;
+        loop {
+            let n = source.read(&mut buf).await.context("read remote")?;
+            if n == 0 {
+                break;
+            }
+            sink.write_all(&buf[..n]).await.context("write local")?;
+            transferred += n as u64;
+            on_progress(transferred, total);
+        }
+        sink.shutdown().await.context("flush local")?;
+        Ok(transferred)
     }
 }
 
