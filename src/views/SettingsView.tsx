@@ -50,7 +50,7 @@ export function SettingsView({ open, onClose }: Props) {
             <div className="grid gap-2">
               {(
                 Object.entries(TERMINAL_THEMES) as [ThemeId, (typeof TERMINAL_THEMES)[ThemeId]][]
-              ).map(([id, { name, theme: t }]) => {
+              ).map(([id, t]) => {
                 const selected = theme === id;
                 return (
                   <button
@@ -64,8 +64,8 @@ export function SettingsView({ open, onClose }: Props) {
                         : "border-(--color-border) bg-(--color-bg-soft) hover:bg-(--color-panel-hover)",
                     )}
                   >
-                    <ThemePreview theme={t} />
-                    <span className="flex-1 text-sm">{name}</span>
+                    <ThemePreview theme={t.terminal} />
+                    <span className="flex-1 text-sm">{t.name}</span>
                     {selected && <Check className="h-4 w-4 text-(--color-accent)" />}
                   </button>
                 );

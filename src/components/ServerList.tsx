@@ -105,8 +105,10 @@ export function ServerList({ onOpenSession, query = "" }: Props) {
               <li>
                 <button
                   type="button"
-                  onClick={() => select(host.id)}
-                  onDoubleClick={() => onOpenSession?.(host)}
+                  onClick={() => {
+                    select(host.id);
+                    onOpenSession?.(host, "ssh");
+                  }}
                   className={cn(
                     "group relative flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm transition-colors",
                     "hover:bg-(--color-panel-hover)",

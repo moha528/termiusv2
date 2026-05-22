@@ -1,49 +1,63 @@
-import { Settings as SettingsIcon } from "lucide-react";
+import { Command, Settings as SettingsIcon } from "lucide-react";
 
 type Props = {
   onOpenSettings: () => void;
+  onOpenPalette: () => void;
 };
 
 /**
  * App header rendered just below the native OS title bar.
- *
- * We deliberately keep the OS-native chrome (decorations: true) so we
- * preserve every window-manager behavior the user expects:
- * - Aero snap (drag to edge), aero shake
- * - Windows 11 snap layouts (hover the maximize button)
- * - Double-click to toggle maximize, native min/max/close buttons
- * - System theme follow + DwmSetWindowAttribute dark-mode title bar
- *
- * The cost is a single OS-themed strip at the very top; everything visible
- * below it is ours and matches the in-app theme.
+ * Hosts the brand and the global actions (command palette, settings).
  */
-export function Header({ onOpenSettings }: Props) {
+export function Header({ onOpenSettings, onOpenPalette }: Props) {
   return (
     <header className="flex h-11 shrink-0 items-center justify-between border-b border-(--color-border) bg-(--color-panel) px-3">
       <div className="flex items-center gap-2.5">
         <Logo />
         <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold tracking-tight">Termius v2</span>
+          <span className="text-sm font-semibold tracking-tight text-(--color-text)">
+            Termius v2
+          </span>
           <span className="text-[10px] uppercase tracking-wider text-(--color-muted)">
             SSH client
           </span>
         </div>
       </div>
-      <button
-        type="button"
-        aria-label="Settings"
-        onClick={onOpenSettings}
-        className="rounded-md p-1.5 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
-      >
-        <SettingsIcon className="h-4 w-4" />
-      </button>
+
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onOpenPalette}
+          title="Palette de commandes  ·  Ctrl+K"
+          className="inline-flex items-center gap-2 rounded-md border border-(--color-border) bg-(--color-bg-soft) px-2.5 py-1 text-xs text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+        >
+          <Command className="h-3.5 w-3.5" />
+          <span>Rechercher</span>
+          <span className="flex items-center gap-0.5 text-(--color-muted-soft)">
+            <kbd className="rounded border border-(--color-border) bg-(--color-bg) px-1 font-mono text-[10px]">
+              Ctrl
+            </kbd>
+            <kbd className="rounded border border-(--color-border) bg-(--color-bg) px-1 font-mono text-[10px]">
+              K
+            </kbd>
+          </span>
+        </button>
+        <button
+          type="button"
+          aria-label="Settings"
+          onClick={onOpenSettings}
+          className="rounded-md p-1.5 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+        >
+          <SettingsIcon className="h-4 w-4" />
+        </button>
+      </div>
     </header>
   );
 }
 
 function Logo() {
   return (
-    <div className="relative grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-(--color-accent) to-(--color-accent-soft) shadow-[0_0_12px_-2px_rgba(125,211,252,0.5)]">
+    <div className="relative grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-(--color-accent) to-(--color-accent-soft) shadow-[0_0_12px_-2px_var(--color-accent)]">
       <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -51,7 +65,7 @@ function Logo() {
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-3.5 w-3.5 text-zinc-950"
+        className="h-3.5 w-3.5 text-(--color-bg)"
         role="img"
         aria-label="Termius v2 logo"
       >

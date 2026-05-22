@@ -1,18 +1,18 @@
-import { FolderTree, Terminal as TerminalIcon, X } from "lucide-react";
+import { FolderTree, Plus, Terminal as TerminalIcon, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { SessionTabType } from "@/stores/useSessionsStore";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
-export function TabsBar() {
+type Props = {
+  onNewTab: () => void;
+};
+
+export function TabsBar({ onNewTab }: Props) {
   const tabs = useSessionsStore((s) => s.tabs);
   const activeTabId = useSessionsStore((s) => s.activeTabId);
   const setActive = useSessionsStore((s) => s.setActive);
   const closeTab = useSessionsStore((s) => s.closeTab);
-
-  if (tabs.length === 0) {
-    return <div className="h-9 shrink-0 border-b border-(--color-border) bg-(--color-bg-soft)" />;
-  }
 
   return (
     <div
@@ -59,7 +59,22 @@ export function TabsBar() {
           </div>
         );
       })}
+      <NewTabButton onClick={onNewTab} />
     </div>
+  );
+}
+
+function NewTabButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Nouvel onglet  ·  Ctrl+K"
+      aria-label="Nouvel onglet"
+      className="flex items-center justify-center px-3 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+    >
+      <Plus className="h-3.5 w-3.5" />
+    </button>
   );
 }
 

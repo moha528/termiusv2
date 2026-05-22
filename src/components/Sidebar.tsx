@@ -5,19 +5,17 @@ import type { Host } from "@/lib/bindings/Host";
 import { useServersStore } from "@/stores/useServersStore";
 import type { SessionTabType } from "@/stores/useSessionsStore";
 
-import { HostFormDialog } from "./HostFormDialog";
-import { ImportSshConfigDialog } from "./ImportSshConfigDialog";
 import { ServerList } from "./ServerList";
 import { Input } from "./ui/Input";
 
 type SidebarProps = {
   width: number;
   onOpenSession?: (host: Host, type?: SessionTabType) => void;
+  onOpenImport: () => void;
+  onOpenNewHost: () => void;
 };
 
-export function Sidebar({ width, onOpenSession }: SidebarProps) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+export function Sidebar({ width, onOpenSession, onOpenImport, onOpenNewHost }: SidebarProps) {
   const [query, setQuery] = useState("");
   const hostCount = useServersStore((s) => s.hosts.length);
 
@@ -40,7 +38,7 @@ export function Sidebar({ width, onOpenSession }: SidebarProps) {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setImportOpen(true)}
+            onClick={onOpenImport}
             aria-label="Import from ~/.ssh/config"
             title="Importer depuis ~/.ssh/config"
             className="rounded-md p-1 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
@@ -49,7 +47,7 @@ export function Sidebar({ width, onOpenSession }: SidebarProps) {
           </button>
           <button
             type="button"
-            onClick={() => setAddOpen(true)}
+            onClick={onOpenNewHost}
             aria-label="Add server"
             className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
           >
@@ -74,9 +72,6 @@ export function Sidebar({ width, onOpenSession }: SidebarProps) {
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         <ServerList onOpenSession={onOpenSession} query={query} />
       </div>
-
-      <HostFormDialog open={addOpen} onOpenChange={setAddOpen} host={null} />
-      <ImportSshConfigDialog open={importOpen} onOpenChange={setImportOpen} />
     </aside>
   );
 }
