@@ -12,6 +12,7 @@ import {
   FolderPlus,
   Home,
   Loader2,
+  Pencil,
   RefreshCw,
   Scissors,
   Trash2,
@@ -20,7 +21,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Clipboard } from "@/components/SftpView";
 import type { FileEntry } from "@/lib/bindings/FileEntry";
-import { withToast } from "@/lib/feedback";
+import { onEditSaved } from "@/lib/edit";
+import { toastInfo, withToast } from "@/lib/feedback";
 import {
   DRAG_MIME,
   type FileDragPayload,
@@ -262,6 +264,24 @@ export function FilePane({
     if (clipboard?.mode === "cut") onClipboardChange?.(null);
   };
 
+  // ---- Edit remote (P2-T13) ----
+  const handleEditRemote = async (entry: FileEntry) => {
+    if (!path || !adapter.editRemote) return;
+    const full = joinPath(adapter, path, entry.name);
+    try {
+      const started = await withToast(adapter.editRemote(full), {
+        loading: `Ouverture de « ${entry.name} » dans l'éditeur…`,
+        success: "Éditeur lancé — modifications synchronisées automatiquement",
+      });
+      // Subscribe to subsequent saves and surface a small toast.
+      void onEditSaved(started.editId, () => {
+        toastInfo(`${started.name} synchronisé`);
+      });
+    } catch (e) {
+      console.warn("edit remote:", e);
+    }
+  };
+
   // ---- Bulk delete ----
   const deleteSelected = async () => {
     if (!path || selectedEntries.length === 0) return;
@@ -477,6 +497,12 @@ export function FilePane({
                           {selected.size <= 1 && (
                             <>
                               <ContextMenuSeparator />
+                              {adapter.editRemote && !entry.is_dir && (
+                                <ContextMenuItem onSelect={() => handleEditRemote(entry)}>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Éditer
+                                </ContextMenuItem>
+                              )}
                               <ContextMenuItem
                                 onSelect={() => setDialog({ kind: "properties", entry })}
                               >

@@ -4,6 +4,7 @@
 //! enregistre les commandes IPC et lance la boucle Tauri.
 
 pub mod commands;
+pub mod edit;
 pub mod error;
 pub mod import;
 pub mod keyvault;
@@ -40,6 +41,7 @@ pub fn run() {
             app.manage(pool);
             app.manage(ssh::SessionManager::default());
             app.manage(sftp::TransferRegistry::default());
+            app.manage(edit::EditRegistry::default());
 
             #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
@@ -81,6 +83,8 @@ pub fn run() {
             commands::fs_local::local_create_file,
             commands::fs_local::local_remove,
             commands::fs_local::local_rename,
+            commands::edit::open_remote_edit,
+            commands::edit::cancel_remote_edit,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

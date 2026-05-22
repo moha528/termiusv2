@@ -2,6 +2,7 @@
 //!
 //! One sub-module per domain; each re-exports its `#[tauri::command]` fns.
 
+pub mod edit;
 pub mod fs_local;
 pub mod hosts;
 pub mod import;

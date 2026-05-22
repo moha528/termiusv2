@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { FileEntry } from "./bindings/FileEntry";
+import type { EditStartedEvent } from "./edit";
+import { editApi } from "./edit";
 import { sftpApi } from "./sftp";
 
 export const localFs = {
@@ -25,6 +27,12 @@ export type FsAdapter = {
   createFile: (path: string) => Promise<void>;
   remove: (path: string) => Promise<void>;
   rename: (from: string, to: string) => Promise<void>;
+  /**
+   * Open a remote file in the OS-default editor and start watching it for
+   * re-uploads (P2-T13). Only set on the remote adapter — local files are
+   * already, well, local.
+   */
+  editRemote?: (path: string) => Promise<EditStartedEvent>;
 };
 
 export const localAdapter: FsAdapter = {
@@ -59,6 +67,7 @@ export function makeRemoteAdapter(sessionId: string): FsAdapter {
     createFile: (p) => sftpApi.createFile(sessionId, p),
     remove: (p) => sftpApi.remove(sessionId, p),
     rename: (f, t) => sftpApi.rename(sessionId, f, t),
+    editRemote: (p) => editApi.openRemote(sessionId, p),
   };
 }
 
