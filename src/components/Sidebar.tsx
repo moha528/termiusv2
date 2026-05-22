@@ -1,10 +1,11 @@
-import { Plus, Search } from "lucide-react";
+import { Download, Plus, Search } from "lucide-react";
 import { useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
 import { useServersStore } from "@/stores/useServersStore";
 
 import { HostFormDialog } from "./HostFormDialog";
+import { ImportSshConfigDialog } from "./ImportSshConfigDialog";
 import { ServerList } from "./ServerList";
 import { Input } from "./ui/Input";
 
@@ -15,6 +16,7 @@ type SidebarProps = {
 
 export function Sidebar({ width, onOpenSession }: SidebarProps) {
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [query, setQuery] = useState("");
   const hostCount = useServersStore((s) => s.hosts.length);
 
@@ -34,15 +36,26 @@ export function Sidebar({ width, onOpenSession }: SidebarProps) {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          aria-label="Add server"
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span className="font-medium">Add</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            aria-label="Import from ~/.ssh/config"
+            title="Importer depuis ~/.ssh/config"
+            className="rounded-md p-1 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            aria-label="Add server"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="font-medium">Add</span>
+          </button>
+        </div>
       </div>
 
       <div className="p-2">
@@ -62,6 +75,7 @@ export function Sidebar({ width, onOpenSession }: SidebarProps) {
       </div>
 
       <HostFormDialog open={addOpen} onOpenChange={setAddOpen} host={null} />
+      <ImportSshConfigDialog open={importOpen} onOpenChange={setImportOpen} />
     </aside>
   );
 }
