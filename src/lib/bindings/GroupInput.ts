@@ -3,4 +3,4 @@
 /**
  * Payload for creating or updating a [`Group`].
  */
-export type GroupInput = { name: string; parent_id: string | null; position: number };
+export type GroupInput = { name: string, parent_id: string | null, position: number, };

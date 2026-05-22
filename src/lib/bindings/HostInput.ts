@@ -3,10 +3,4 @@
 /**
  * Payload for creating or updating a [`Host`]. `id` is server-generated on create.
  */
-export type HostInput = {
-  label: string;
-  hostname: string;
-  port: number;
-  username: string;
-  group_id: string | null;
-};
+export type HostInput = { label: string, hostname: string, port: number, username: string, group_id: string | null, };

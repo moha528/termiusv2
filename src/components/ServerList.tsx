@@ -1,5 +1,5 @@
 import { Server } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
 import { cn } from "@/lib/utils";
@@ -27,9 +27,27 @@ type OnOpenSession = (host: Host) => void;
 
 type Props = {
   onOpenSession?: OnOpenSession;
+  /** Case-insensitive substring filter on label, hostname or username. */
+  query?: string;
 };
 
-export function ServerList({ onOpenSession }: Props) {
+/**
+ * Substring filter on label / hostname / username.
+ *
+ * We deliberately keep it dependency-free (no fuse.js) — fuzzy matching is
+ * marginal value for 5–100 hosts. Switch to fuse.js if signals say otherwise.
+ */
+function matches(host: Host, query: string): boolean {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (
+    host.label.toLowerCase().includes(q) ||
+    host.hostname.toLowerCase().includes(q) ||
+    host.username.toLowerCase().includes(q)
+  );
+}
+
+export function ServerList({ onOpenSession, query = "" }: Props) {
   const { hosts, selectedId, loading, error, refresh, select } = useServersStore();
   const remove = useServersStore((s) => s.remove);
   const [editing, setEditing] = useState<Host | null>(null);
@@ -39,6 +57,8 @@ export function ServerList({ onOpenSession }: Props) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const filtered = useMemo(() => hosts.filter((h) => matches(h, query)), [hosts, query]);
 
   if (loading && hosts.length === 0) {
     return <p className="px-2 py-1 text-xs italic text-(--color-muted)">Chargement…</p>;
@@ -60,10 +80,18 @@ export function ServerList({ onOpenSession }: Props) {
     );
   }
 
+  if (filtered.length === 0) {
+    return (
+      <p className="px-2 py-1 text-xs italic text-(--color-muted)">
+        Aucun résultat pour « {query} ».
+      </p>
+    );
+  }
+
   return (
     <>
       <ul className="flex flex-col gap-0.5">
-        {hosts.map((host) => (
+        {filtered.map((host) => (
           <ContextMenu key={host.id}>
             <ContextMenuTrigger asChild>
               <li>

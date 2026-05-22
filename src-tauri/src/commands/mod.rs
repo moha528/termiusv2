@@ -4,3 +4,4 @@
 
 pub mod hosts;
 pub mod sessions;
+pub mod settings;

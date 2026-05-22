@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useSessionsStore } from "@/stores/useSessionsStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { SettingsView } from "@/views/SettingsView";
 
 import { ConnectDialog } from "./ConnectDialog";
 import { SessionPane } from "./SessionPane";
@@ -11,10 +13,24 @@ import { TabsBar } from "./TabsBar";
 import type { Host } from "@/lib/bindings/Host";
 
 export function MainLayout() {
-  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const sidebarWidth = useSettingsStore((s) => s.sidebarWidth);
+  const setSetting = useSettingsStore((s) => s.set);
+  const hydrate = useSettingsStore((s) => s.hydrate);
   const tabs = useSessionsStore((s) => s.tabs);
   const activeTabId = useSessionsStore((s) => s.activeTabId);
+
   const [connectFor, setConnectFor] = useState<Host | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  // Persist the currently active tab id whenever it changes (debounced is
+  // unnecessary — set_setting is one row write).
+  useEffect(() => {
+    setSetting("lastActiveTabId", activeTabId);
+  }, [activeTabId, setSetting]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -26,8 +42,16 @@ export function MainLayout() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <Sidebar width={sidebarWidth} onOpenSession={setConnectFor} />
-        <SidebarResizer onResize={setSidebarWidth} />
+        <Sidebar
+          width={sidebarWidth}
+          onOpenSession={setConnectFor}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        <SidebarResizer
+          onResize={(w) => {
+            setSetting("sidebarWidth", w);
+          }}
+        />
 
         <main className="flex min-w-0 flex-1 flex-col">
           <TabsBar />
@@ -44,6 +68,7 @@ export function MainLayout() {
       </div>
 
       <ConnectDialog host={connectFor} onOpenChange={(o) => !o && setConnectFor(null)} />
+      <SettingsView open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

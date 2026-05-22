@@ -8,6 +8,8 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useEffect, useRef } from "react";
 
 import { onSessionClosed, onTerminalData, sessionsApi } from "@/lib/sessions";
+import { getTheme } from "@/lib/themes";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 type Props = {
   sessionId: string;
@@ -25,6 +27,7 @@ type Props = {
  */
 export function TerminalView({ sessionId, onClosed }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const themeId = useSettingsStore((s) => s.terminalTheme);
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -34,11 +37,7 @@ export function TerminalView({ sessionId, onClosed }: Props) {
       fontSize: 13,
       cursorBlink: true,
       allowTransparency: false,
-      theme: {
-        background: "#15171c",
-        foreground: "#e6e6e6",
-        cursor: "#7fc8ff",
-      },
+      theme: getTheme(themeId),
     });
 
     const fit = new FitAddon();
@@ -89,7 +88,7 @@ export function TerminalView({ sessionId, onClosed }: Props) {
       for (const un of unlisteners) un();
       term.dispose();
     };
-  }, [sessionId, onClosed]);
+  }, [sessionId, onClosed, themeId]);
 
   return <div ref={hostRef} className="h-full w-full bg-[#15171c]" />;
 }
