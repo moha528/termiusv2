@@ -9,6 +9,8 @@ pub mod keyvault;
 pub mod models;
 pub mod ssh;
 pub mod store;
+#[cfg(target_os = "windows")]
+mod window_chrome;
 
 pub use error::AppError;
 
@@ -35,6 +37,12 @@ pub fn run() {
             });
             app.manage(pool);
             app.manage(ssh::SessionManager::default());
+
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                window_chrome::style_titlebar(&window);
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

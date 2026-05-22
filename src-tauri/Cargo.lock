@@ -5364,6 +5364,8 @@ dependencies = [
  "tracing-subscriber",
  "ts-rs",
  "uuid",
+ "window-vibrancy",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
