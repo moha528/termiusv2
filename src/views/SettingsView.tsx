@@ -42,7 +42,6 @@ export function SettingsView({ open, onClose }: Props) {
           <span className="text-xs font-medium uppercase tracking-wide text-(--color-muted)">
             Terminal
           </span>
-          {/* biome-ignore lint/a11y/noLabelWithoutControl: select is wrapped */}
           <label className="grid gap-1 text-sm">
             <span className="text-(--color-muted)">Thème</span>
             <select
