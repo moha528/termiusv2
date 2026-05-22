@@ -36,6 +36,14 @@ type TransfersState = {
   transfers: Transfer[];
   /** When `true`, the bottom drawer is expanded. */
   panelOpen: boolean;
+  /**
+   * Monotonic counter incremented every time a transfer transitions to a
+   * terminal state (`done` / `error` / `cancelled`). FilePane components use
+   * it as a refresh trigger without having to subscribe to the whole list.
+   */
+  completionTick: number;
+  /** Last completed transfer; consumed by panes to know what changed where. */
+  lastCompleted: Transfer | null;
 
   register: (
     init: Omit<Transfer, "status" | "bytesDone" | "totalBytes" | "bytesPerSec" | "startedAt">,
@@ -49,6 +57,8 @@ type TransfersState = {
 export const useTransfersStore = create<TransfersState>((set, get) => ({
   transfers: [],
   panelOpen: false,
+  completionTick: 0,
+  lastCompleted: null,
 
   register(init) {
     const transfer: Transfer = {
@@ -77,21 +87,25 @@ export const useTransfersStore = create<TransfersState>((set, get) => ({
     });
 
     onTransferDone(init.transferId, (d) => {
+      const updated = get().transfers.map((t) =>
+        t.transferId === init.transferId
+          ? {
+              ...t,
+              bytesDone: d.bytesTransferred || t.bytesDone,
+              status: (d.error
+                ? d.error.includes(TRANSFER_CANCELLED_MESSAGE)
+                  ? "cancelled"
+                  : "error"
+                : "done") as TransferStatus,
+              error: d.error ?? undefined,
+            }
+          : t,
+      );
+      const lastCompleted = updated.find((t) => t.transferId === init.transferId) ?? null;
       set({
-        transfers: get().transfers.map((t) =>
-          t.transferId === init.transferId
-            ? {
-                ...t,
-                bytesDone: d.bytesTransferred || t.bytesDone,
-                status: d.error
-                  ? d.error.includes(TRANSFER_CANCELLED_MESSAGE)
-                    ? "cancelled"
-                    : "error"
-                  : "done",
-                error: d.error ?? undefined,
-              }
-            : t,
-        ),
+        transfers: updated,
+        completionTick: get().completionTick + 1,
+        lastCompleted,
       });
     });
   },

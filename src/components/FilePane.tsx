@@ -1,5 +1,8 @@
 import {
+  Check,
   ChevronRight,
+  ClipboardPaste,
+  Copy,
   File as FileIcon,
   FilePlus,
   Folder,
@@ -8,9 +11,12 @@ import {
   Home,
   Loader2,
   RefreshCw,
+  Scissors,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type { Clipboard } from "@/components/SftpView";
 import type { FileEntry } from "@/lib/bindings/FileEntry";
 import {
   DRAG_MIME,
@@ -22,6 +28,7 @@ import {
   splitPath,
 } from "@/lib/fs";
 import { cn } from "@/lib/utils";
+import { useTransfersStore } from "@/stores/useTransfersStore";
 
 import { FilePropertiesDialog } from "./FilePropertiesDialog";
 import {
@@ -45,25 +52,33 @@ import { PromptDialog } from "./ui/PromptDialog";
 type Props = {
   adapter: FsAdapter;
   title: string;
-  /**
-   * Called when the user drops rows from the *other* pane onto this one.
-   * The pane reports its own current path so the parent can compose the
-   * destination path for each transferred file.
-   */
   onCrossDrop?: (payload: FileDragPayload, destAdapter: FsAdapter, destPath: string) => void;
+  clipboard?: Clipboard | null;
+  onClipboardChange?: (clip: Clipboard | null) => void;
+  onPaste?: (destAdapter: FsAdapter, destPath: string) => void;
 };
 
 /**
- * One side of the SFTP dual-pane. Driven by an `FsAdapter` so the same
- * component renders Local and Remote with identical UX.
+ * One side of the SFTP dual-pane. Driven by an `FsAdapter`.
  *
- * Actions exposed here (P2-T10):
- * - Toolbar: New folder / New file
- * - Right-click on a row: Rename / Delete / Properties
+ * Multi-selection: Ctrl/Cmd+click toggles individual rows, Shift+click
+ * extends a contiguous range. Right-clicking a row that's part of the
+ * current selection runs the action against the whole selection; right-
+ * clicking outside the selection narrows it to that single row first.
  *
- * Selection and drag&drop arrive in P2-T11.
+ * Auto-refresh: the pane subscribes to the transfers store and reloads
+ * whenever a transfer terminates and its destination directory matches the
+ * directory we're displaying — so a fresh upload/download shows up without
+ * the user having to hit Refresh.
  */
-export function FilePane({ adapter, title, onCrossDrop }: Props) {
+export function FilePane({
+  adapter,
+  title,
+  onCrossDrop,
+  clipboard,
+  onClipboardChange,
+  onPaste,
+}: Props) {
   const [path, setPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,9 +92,10 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
     | { kind: "mkdir" }
     | { kind: "newFile" }
     | { kind: "rename"; entry: FileEntry }
-    | { kind: "delete"; entry: FileEntry }
+    | { kind: "delete"; entries: FileEntry[] }
     | { kind: "properties"; entry: FileEntry };
   const [dialog, setDialog] = useState<Dialogs>({ kind: "none" });
+  const closeDialog = () => setDialog({ kind: "none" });
 
   const reload = useCallback(
     async (target: string) => {
@@ -105,14 +121,40 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
       .catch((e) => setError(String(e)));
   }, [adapter, reload]);
 
-  // Whenever we change directory, clear selection — names from the old dir
-  // would be meaningless in the new one.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `path` is the trigger, not a body dep
   useEffect(() => {
     setSelected(new Set());
     setLastClicked(null);
   }, [path]);
 
+  // Reload whenever a transfer touching our current directory completes.
+  const completionTick = useTransfersStore((s) => s.completionTick);
+  const lastCompleted = useTransfersStore((s) => s.lastCompleted);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick is the trigger
+  useEffect(() => {
+    if (!path || !lastCompleted) return;
+    if (lastCompleted.status !== "done") return;
+    const destDir = parentOf(adapter, lastCompleted.destPath);
+    if (destDir === path) {
+      void reload(path);
+    }
+  }, [completionTick]);
+
+  const navigateTo = (next: string) => {
+    void reload(next);
+  };
+
+  const refresh = () => {
+    if (path) void reload(path);
+  };
+
+  const goUp = () => {
+    if (!path) return;
+    const parent = parentOf(adapter, path);
+    if (parent !== path) navigateTo(parent);
+  };
+
+  // ---- Selection ----
   const handleRowClick = (e: React.MouseEvent, name: string) => {
     if (e.shiftKey && lastClicked) {
       const names = entries.map((x) => x.name);
@@ -136,10 +178,24 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
     setLastClicked(name);
   };
 
+  const handleRowContextMenu = (name: string) => {
+    // If the right-clicked row isn't in the current selection, narrow the
+    // selection to just that row before the menu opens. Matches Finder /
+    // Explorer behaviour.
+    if (!selected.has(name)) {
+      setSelected(new Set([name]));
+      setLastClicked(name);
+    }
+  };
+
+  const selectedEntries = useMemo(
+    () => entries.filter((e) => selected.has(e.name)),
+    [entries, selected],
+  );
+
+  // ---- Drag & drop ----
   const handleDragStart = (e: React.DragEvent, name: string) => {
     if (!path) return;
-    // If the dragged row isn't already in the selection, treat it as a
-    // single-row drag (matches Finder / Explorer convention).
     let names: string[];
     if (selected.has(name)) {
       names = Array.from(selected);
@@ -172,33 +228,43 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
     const payload = readDragPayload(e.dataTransfer);
     if (!payload || !path) return;
     e.preventDefault();
-    if (payload.sourceKind === adapter.kind) return; // same-side: ignored for now
+    if (payload.sourceKind === adapter.kind) return;
     onCrossDrop?.(payload, adapter, path);
   };
 
-  const navigateTo = (next: string) => {
-    void reload(next);
+  // ---- Clipboard ----
+  const doCopy = (mode: "copy" | "cut") => {
+    if (!path || selectedEntries.length === 0) return;
+    onClipboardChange?.({
+      mode,
+      sourceKind: adapter.kind,
+      basePath: path,
+      names: selectedEntries.map((e) => e.name),
+    });
   };
 
-  const refresh = () => {
-    if (path) void reload(path);
+  const canPaste = clipboard && clipboard.names.length > 0 && clipboard.sourceKind !== adapter.kind;
+
+  const doPaste = () => {
+    if (!path || !canPaste) return;
+    onPaste?.(adapter, path);
+    if (clipboard?.mode === "cut") onClipboardChange?.(null);
   };
 
-  const goUp = () => {
-    if (!path) return;
-    const parent = parentOf(adapter, path);
-    if (parent !== path) navigateTo(parent);
-  };
-
-  const closeDialog = () => setDialog({ kind: "none" });
-
-  const dialogPath = useMemo(() => {
-    if (!path) return null;
-    if (dialog.kind === "rename" || dialog.kind === "delete" || dialog.kind === "properties") {
-      return joinPath(adapter, path, dialog.entry.name);
+  // ---- Bulk delete ----
+  const deleteSelected = async () => {
+    if (!path || selectedEntries.length === 0) return;
+    try {
+      for (const entry of selectedEntries) {
+        await adapter.remove(joinPath(adapter, path, entry.name));
+      }
+      refresh();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      closeDialog();
     }
-    return null;
-  }, [adapter, path, dialog]);
+  };
 
   return (
     <section
@@ -211,7 +277,12 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
       )}
     >
       <header className="flex h-9 shrink-0 items-center justify-between border-b border-(--color-border) bg-(--color-panel) px-2 text-xs">
-        <span className="font-semibold uppercase tracking-wider text-(--color-muted)">{title}</span>
+        <span className="font-semibold uppercase tracking-wider text-(--color-muted)">
+          {title}
+          {selected.size > 0 && (
+            <span className="ml-2 text-(--color-accent-soft)">({selected.size})</span>
+          )}
+        </span>
         <div className="flex items-center gap-0.5">
           <IconBtn label="New folder" onClick={() => setDialog({ kind: "mkdir" })}>
             <FolderPlus className="h-3.5 w-3.5" />
@@ -231,121 +302,198 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
 
       <Breadcrumb path={path} adapter={adapter} onNavigate={navigateTo} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {error && (
-          <div className="m-2 rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-xs text-red-400">
-            {error}
-          </div>
-        )}
-        {loading && entries.length === 0 && (
-          <div className="grid place-items-center py-8 text-(--color-muted)">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        )}
-        {!loading && entries.length === 0 && !error && (
-          <div className="px-3 py-2 text-xs italic text-(--color-muted-soft)">Dossier vide</div>
-        )}
+      {/* Empty-area context menu wraps the whole list region so a right-click
+          on the background (not on a row) shows Paste / New folder / etc. */}
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {error && (
+              <div className="m-2 rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-xs text-red-400">
+                {error}
+              </div>
+            )}
+            {loading && entries.length === 0 && (
+              <div className="grid place-items-center py-8 text-(--color-muted)">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            )}
+            {!loading && entries.length === 0 && !error && (
+              <div className="px-3 py-2 text-xs italic text-(--color-muted-soft)">Dossier vide</div>
+            )}
 
-        {entries.length > 0 && (
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-(--color-bg-soft) text-(--color-muted)">
-              <tr className="border-b border-(--color-border)">
-                <th className="px-2 py-1 text-left font-medium">Nom</th>
-                <th className="px-2 py-1 text-right font-medium">Taille</th>
-                <th className="hidden px-2 py-1 text-left font-medium md:table-cell">Modifié</th>
-              </tr>
-            </thead>
-            <tbody>
-              {path && parentOf(adapter, path) !== path && (
-                <tr
-                  onDoubleClick={goUp}
-                  className="cursor-pointer text-(--color-muted) hover:bg-(--color-panel-hover)"
-                >
-                  <td className="flex items-center gap-2 px-2 py-1">
-                    <Folder className="h-3.5 w-3.5" />
-                    <span>..</span>
-                  </td>
-                  <td className="px-2 py-1 text-right">—</td>
-                  <td className="hidden px-2 py-1 md:table-cell">—</td>
-                </tr>
-              )}
-              {entries.map((entry) => (
-                <ContextMenu key={entry.name}>
-                  <ContextMenuTrigger asChild>
+            {entries.length > 0 && (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-(--color-bg-soft) text-(--color-muted)">
+                  <tr className="border-b border-(--color-border)">
+                    <th className="px-2 py-1 text-left font-medium">Nom</th>
+                    <th className="px-2 py-1 text-right font-medium">Taille</th>
+                    <th className="hidden px-2 py-1 text-left font-medium md:table-cell">
+                      Modifié
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {path && parentOf(adapter, path) !== path && (
                     <tr
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, entry.name)}
-                      onClick={(e) => handleRowClick(e, entry.name)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          if (!path) return;
-                          if (entry.is_dir) navigateTo(joinPath(adapter, path, entry.name));
-                        }
-                      }}
-                      onDoubleClick={() => {
-                        if (!path) return;
-                        if (entry.is_dir) navigateTo(joinPath(adapter, path, entry.name));
-                      }}
-                      className={cn(
-                        "cursor-pointer transition-colors",
-                        selected.has(entry.name)
-                          ? "bg-(--color-accent-bg)/60 text-(--color-text)"
-                          : "hover:bg-(--color-panel-hover)",
-                        !selected.has(entry.name) &&
-                          (entry.is_dir ? "text-(--color-text)" : "text-(--color-text-soft)"),
-                      )}
+                      onDoubleClick={goUp}
+                      className="cursor-pointer text-(--color-muted) hover:bg-(--color-panel-hover)"
                     >
                       <td className="flex items-center gap-2 px-2 py-1">
-                        {entry.is_dir ? (
-                          <FolderOpen className="h-3.5 w-3.5 text-(--color-accent)" />
-                        ) : (
-                          <FileIcon className="h-3.5 w-3.5 text-(--color-muted)" />
-                        )}
-                        <span className="truncate">{entry.name}</span>
-                        {entry.is_symlink && (
-                          <span className="rounded bg-white/5 px-1 text-[10px] text-(--color-muted)">
-                            ↪
-                          </span>
-                        )}
+                        <Folder className="h-3.5 w-3.5" />
+                        <span>..</span>
                       </td>
-                      <td className="px-2 py-1 text-right font-mono text-(--color-muted)">
-                        {entry.is_dir ? "—" : formatSize(Number(entry.size ?? 0))}
-                      </td>
-                      <td className="hidden px-2 py-1 text-(--color-muted) md:table-cell">
-                        {entry.mtime ? formatDate(entry.mtime) : ""}
-                      </td>
+                      <td className="px-2 py-1 text-right">—</td>
+                      <td className="hidden px-2 py-1 md:table-cell">—</td>
                     </tr>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    {entry.is_dir && (
-                      <ContextMenuItem
-                        onSelect={() => {
-                          if (path) navigateTo(joinPath(adapter, path, entry.name));
-                        }}
-                      >
-                        Ouvrir
-                      </ContextMenuItem>
-                    )}
-                    <ContextMenuItem onSelect={() => setDialog({ kind: "rename", entry })}>
-                      Renommer…
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      destructive
-                      onSelect={() => setDialog({ kind: "delete", entry })}
-                    >
-                      Supprimer…
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem onSelect={() => setDialog({ kind: "properties", entry })}>
-                      Propriétés
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                  )}
+                  {entries.map((entry) => {
+                    const isSelected = selected.has(entry.name);
+                    const isClipped = isClipboardEntry(clipboard, adapter.kind, path, entry.name);
+                    return (
+                      <ContextMenu key={entry.name}>
+                        <ContextMenuTrigger asChild>
+                          <tr
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, entry.name)}
+                            onClick={(e) => handleRowClick(e, entry.name)}
+                            onContextMenu={() => handleRowContextMenu(entry.name)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && entry.is_dir && path)
+                                navigateTo(joinPath(adapter, path, entry.name));
+                            }}
+                            onDoubleClick={() => {
+                              if (!path) return;
+                              if (entry.is_dir) navigateTo(joinPath(adapter, path, entry.name));
+                            }}
+                            className={cn(
+                              "cursor-pointer transition-colors",
+                              isSelected
+                                ? "bg-(--color-accent-bg)/60 text-(--color-text)"
+                                : "hover:bg-(--color-panel-hover)",
+                              !isSelected &&
+                                (entry.is_dir ? "text-(--color-text)" : "text-(--color-text-soft)"),
+                              isClipped && clipboard?.mode === "cut" && "opacity-60",
+                            )}
+                          >
+                            <td className="flex items-center gap-2 px-2 py-1">
+                              {entry.is_dir ? (
+                                <FolderOpen className="h-3.5 w-3.5 text-(--color-accent)" />
+                              ) : (
+                                <FileIcon className="h-3.5 w-3.5 text-(--color-muted)" />
+                              )}
+                              <span className="truncate">{entry.name}</span>
+                              {entry.is_symlink && (
+                                <span className="rounded bg-white/5 px-1 text-[10px] text-(--color-muted)">
+                                  ↪
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1 text-right font-mono text-(--color-muted)">
+                              {entry.is_dir ? "—" : formatSize(Number(entry.size ?? 0))}
+                            </td>
+                            <td className="hidden px-2 py-1 text-(--color-muted) md:table-cell">
+                              {entry.mtime ? formatDate(entry.mtime) : ""}
+                            </td>
+                          </tr>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          {entry.is_dir && (
+                            <ContextMenuItem
+                              onSelect={() => {
+                                if (path) navigateTo(joinPath(adapter, path, entry.name));
+                              }}
+                            >
+                              Ouvrir
+                            </ContextMenuItem>
+                          )}
+                          <ContextMenuSeparator />
+                          <ContextMenuItem onSelect={() => doCopy("copy")}>
+                            <Copy className="h-3.5 w-3.5" />
+                            Copier
+                            {selected.size > 1 && (
+                              <span className="ml-auto text-(--color-muted-soft)">
+                                {selected.size}
+                              </span>
+                            )}
+                          </ContextMenuItem>
+                          <ContextMenuItem onSelect={() => doCopy("cut")}>
+                            <Scissors className="h-3.5 w-3.5" />
+                            Couper
+                            {selected.size > 1 && (
+                              <span className="ml-auto text-(--color-muted-soft)">
+                                {selected.size}
+                              </span>
+                            )}
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          {selected.size <= 1 && (
+                            <ContextMenuItem onSelect={() => setDialog({ kind: "rename", entry })}>
+                              Renommer…
+                            </ContextMenuItem>
+                          )}
+                          <ContextMenuItem
+                            destructive
+                            onSelect={() =>
+                              setDialog({
+                                kind: "delete",
+                                entries: selectedEntries.length ? selectedEntries : [entry],
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Supprimer
+                            {selected.size > 1 && <span className="ml-auto">{selected.size}</span>}
+                          </ContextMenuItem>
+                          {selected.size <= 1 && (
+                            <>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                onSelect={() => setDialog({ kind: "properties", entry })}
+                              >
+                                Propriétés
+                              </ContextMenuItem>
+                            </>
+                          )}
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem disabled={!canPaste} onSelect={doPaste}>
+            <ClipboardPaste className="h-3.5 w-3.5" />
+            Coller
+            {clipboard && clipboard.names.length > 1 && (
+              <span className="ml-auto text-(--color-muted-soft)">{clipboard.names.length}</span>
+            )}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onSelect={() => setDialog({ kind: "mkdir" })}>
+            <FolderPlus className="h-3.5 w-3.5" />
+            Nouveau dossier
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => setDialog({ kind: "newFile" })}>
+            <FilePlus className="h-3.5 w-3.5" />
+            Nouveau fichier
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() => setSelected(new Set(entries.map((e) => e.name)))}
+            disabled={entries.length === 0}
+          >
+            <Check className="h-3.5 w-3.5" />
+            Tout sélectionner
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={refresh}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Rafraîchir
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       <PromptDialog
         open={dialog.kind === "mkdir"}
@@ -394,7 +542,9 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
           <AlertDialogTitle>Supprimer ?</AlertDialogTitle>
           <AlertDialogDescription>
             {dialog.kind === "delete"
-              ? `« ${dialog.entry.name} » sera supprimé${dialog.entry.is_dir ? " avec son contenu" : ""}. Action irréversible.`
+              ? dialog.entries.length === 1
+                ? `« ${dialog.entries[0].name} » sera supprimé${dialog.entries[0].is_dir ? " avec son contenu" : ""}.`
+                : `${dialog.entries.length} éléments seront supprimés.`
               : ""}
           </AlertDialogDescription>
           <AlertDialogFooter>
@@ -409,18 +559,7 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
             <AlertDialogAction asChild>
               <button
                 type="button"
-                onClick={async () => {
-                  if (!path || dialog.kind !== "delete") return;
-                  const target = joinPath(adapter, path, dialog.entry.name);
-                  try {
-                    await adapter.remove(target);
-                    refresh();
-                  } catch (e) {
-                    setError(String(e));
-                  } finally {
-                    closeDialog();
-                  }
-                }}
+                onClick={deleteSelected}
                 className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500"
               >
                 Supprimer
@@ -433,11 +572,25 @@ export function FilePane({ adapter, title, onCrossDrop }: Props) {
       <FilePropertiesDialog
         open={dialog.kind === "properties"}
         onOpenChange={(o) => !o && closeDialog()}
-        path={dialogPath ?? ""}
+        path={
+          path && dialog.kind === "properties" ? joinPath(adapter, path, dialog.entry.name) : ""
+        }
         entry={dialog.kind === "properties" ? dialog.entry : null}
       />
     </section>
   );
+}
+
+function isClipboardEntry(
+  clipboard: Clipboard | null | undefined,
+  adapterKind: "local" | "remote",
+  currentPath: string | null,
+  name: string,
+): boolean {
+  if (!clipboard || !currentPath) return false;
+  if (clipboard.sourceKind !== adapterKind) return false;
+  if (clipboard.basePath !== currentPath) return false;
+  return clipboard.names.includes(name);
 }
 
 function Breadcrumb({
