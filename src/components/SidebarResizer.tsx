@@ -41,11 +41,12 @@ export function SidebarResizer({ onResize, minWidth = 180, maxWidth = 480 }: Sid
 
   return (
     <div
-      role="separator"
       aria-orientation="vertical"
-      tabIndex={0}
+      aria-label="Resize sidebar"
       onMouseDown={onMouseDown}
-      className="w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-(--color-accent)/30"
-    />
+      className="group relative w-px shrink-0 cursor-col-resize bg-(--color-border)"
+    >
+      <span className="absolute inset-y-0 -left-1 -right-1 transition-colors hover:bg-(--color-accent)/30" />
+    </div>
   );
 }

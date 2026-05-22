@@ -1,17 +1,11 @@
+import { Server } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
 import { Button } from "./ui/Button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/Dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/Dialog";
 import { Input } from "./ui/Input";
 
 type Props = {
@@ -22,8 +16,8 @@ type Props = {
 /**
  * Prompts for the SSH password and opens a new tab on submit.
  *
- * The password is intentionally NOT persisted at this stage — credential
- * storage in the OS keychain ships in ticket P3-T06.
+ * Password storage in the OS keychain ships in P3-T06; until then we keep it
+ * in memory only for the duration of the connect call.
  */
 export function ConnectDialog({ host, onOpenChange }: Props) {
   const openTab = useSessionsStore((s) => s.openTab);
@@ -39,18 +33,24 @@ export function ConnectDialog({ host, onOpenChange }: Props) {
     }
   }, [host]);
 
-  const open = Boolean(host);
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={Boolean(host)} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Connexion SSH</DialogTitle>
-          <DialogDescription>
-            {host
-              ? `${host.username}@${host.hostname}${host.port !== 22 ? `:${host.port}` : ""}`
-              : ""}
-          </DialogDescription>
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-md bg-(--color-accent-bg) text-(--color-accent)">
+              <Server className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col">
+              <DialogTitle>{host?.label ?? "Connexion SSH"}</DialogTitle>
+              {host && (
+                <span className="font-mono text-xs text-(--color-muted)">
+                  {host.username}@{host.hostname}
+                  {host.port !== 22 ? `:${host.port}` : ""}
+                </span>
+              )}
+            </div>
+          </div>
         </DialogHeader>
 
         <form
@@ -65,24 +65,30 @@ export function ConnectDialog({ host, onOpenChange }: Props) {
               onOpenChange(false);
             } catch (err) {
               setError(String(err));
-            } finally {
               setSubmitting(false);
             }
           }}
         >
-          <Input
-            type="password"
-            placeholder="Mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.currentTarget.value)}
-            autoFocus
-          />
-          {error ? <p className="text-xs text-red-400">{error}</p> : null}
+          <div className="grid gap-1.5 text-xs">
+            <span className="font-medium text-(--color-muted)">Mot de passe</span>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.currentTarget.value)}
+              autoFocus
+              disabled={submitting}
+            />
+          </div>
+          {error && (
+            <div className="rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-xs text-red-400">
+              {error}
+            </div>
+          )}
           <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Annuler
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || !password}>
               {submitting ? "Connexion…" : "Se connecter"}
             </Button>
           </DialogFooter>

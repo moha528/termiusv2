@@ -1,7 +1,8 @@
-import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { forwardRef } from "react";
+
+import { cn } from "@/lib/utils";
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -13,11 +14,7 @@ export const DialogOverlay = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn(
-      "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm",
-      "data-[state=open]:animate-in data-[state=closed]:animate-out",
-      className,
-    )}
+    className={cn("fixed inset-0 z-50 bg-black/70 backdrop-blur-sm", className)}
     {...props}
   />
 ));
@@ -32,8 +29,9 @@ export const DialogContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4",
-        "rounded-lg border border-(--color-border) bg-(--color-panel) p-6 shadow-lg",
+        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-5",
+        "rounded-xl border border-(--color-border-strong) bg-(--color-panel) p-6",
+        "shadow-2xl shadow-black/40",
         className,
       )}
       {...props}
@@ -41,7 +39,7 @@ export const DialogContent = forwardRef<
       {children}
       <DialogPrimitive.Close
         aria-label="Close"
-        className="absolute right-3 top-3 rounded p-1 text-(--color-muted) hover:bg-white/5 hover:text-(--color-text)"
+        className="absolute right-3 top-3 rounded-md p-1.5 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
       >
         <X className="h-4 w-4" />
       </DialogPrimitive.Close>
@@ -51,7 +49,7 @@ export const DialogContent = forwardRef<
 DialogContent.displayName = "DialogContent";
 
 export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col gap-1.5", className)} {...props} />;
+  return <div className={cn("flex flex-col gap-1", className)} {...props} />;
 }
 
 export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -69,7 +67,7 @@ export const DialogTitle = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold leading-none", className)}
+    className={cn("text-base font-semibold leading-none tracking-tight", className)}
     {...props}
   />
 ));
@@ -81,7 +79,7 @@ export const DialogDescription = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm text-(--color-muted)", className)}
+    className={cn("text-xs text-(--color-muted)", className)}
     {...props}
   />
 ));

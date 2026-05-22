@@ -1,6 +1,7 @@
-import { cn } from "@/lib/utils";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { forwardRef } from "react";
+
+import { cn } from "@/lib/utils";
 
 export const AlertDialog = AlertDialogPrimitive.Root;
 export const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
@@ -12,12 +13,13 @@ export const AlertDialogContent = forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <AlertDialogPrimitive.Portal>
-    <AlertDialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+    <AlertDialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" />
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4",
-        "rounded-lg border border-(--color-border) bg-(--color-panel) p-6 shadow-lg",
+        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-5",
+        "rounded-xl border border-(--color-border-strong) bg-(--color-panel) p-6",
+        "shadow-2xl shadow-black/40",
         className,
       )}
       {...props}
@@ -34,7 +36,7 @@ export const AlertDialogTitle = forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold", className)}
+    className={cn("text-base font-semibold tracking-tight", className)}
     {...props}
   />
 ));
@@ -46,7 +48,7 @@ export const AlertDialogDescription = forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm text-(--color-muted)", className)}
+    className={cn("text-xs text-(--color-muted)", className)}
     {...props}
   />
 ));

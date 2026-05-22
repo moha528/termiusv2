@@ -23,7 +23,6 @@ const schema = z.object({
   hostname: z.string().min(1, "Hostname requis"),
   port: z.number({ message: "Port requis" }).int().min(1, "Port >= 1").max(65535, "Port <= 65535"),
   username: z.string().min(1, "Username requis"),
-  // password n'est pas persisté ici — il ira dans le keychain (P3-T06).
   password: z.string().optional(),
 });
 
@@ -32,7 +31,6 @@ type FormValues = z.infer<typeof schema>;
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Si fourni → mode édition. Sinon mode création. */
   host?: Host | null;
 };
 
@@ -46,7 +44,6 @@ export function HostFormDialog({ open, onOpenChange, host }: Props) {
     defaultValues: defaultsFor(host),
   });
 
-  // Reset the form whenever the dialog opens or the target host changes.
   useEffect(() => {
     if (open) form.reset(defaultsFor(host));
   }, [open, host, form]);
@@ -71,9 +68,9 @@ export function HostFormDialog({ open, onOpenChange, host }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Modifier le serveur" : "Ajouter un serveur"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Modifier le serveur" : "Nouveau serveur"}</DialogTitle>
           <DialogDescription>
-            Les mots de passe seront stockés dans le keychain de l'OS (ticket P3-T06).
+            Les mots de passe seront stockés dans le keychain de l'OS (P3-T06).
           </DialogDescription>
         </DialogHeader>
 
@@ -82,11 +79,15 @@ export function HostFormDialog({ open, onOpenChange, host }: Props) {
             <Input placeholder="prod-1" autoFocus {...form.register("label")} />
           </Field>
           <Field label="Hostname" error={form.formState.errors.hostname?.message}>
-            <Input placeholder="prod1.example.com" {...form.register("hostname")} />
+            <Input
+              placeholder="prod1.example.com"
+              spellCheck={false}
+              {...form.register("hostname")}
+            />
           </Field>
-          <div className="grid grid-cols-[1fr_120px] gap-3">
+          <div className="grid grid-cols-[1fr_110px] gap-3">
             <Field label="Username" error={form.formState.errors.username?.message}>
-              <Input placeholder="root" {...form.register("username")} />
+              <Input placeholder="root" spellCheck={false} {...form.register("username")} />
             </Field>
             <Field label="Port" error={form.formState.errors.port?.message}>
               <Input
@@ -97,20 +98,13 @@ export function HostFormDialog({ open, onOpenChange, host }: Props) {
               />
             </Field>
           </div>
-          <Field
-            label="Password (optionnel)"
-            error={form.formState.errors.password?.message}
-            hint="Sera stocké dans le keychain plus tard"
-          >
-            <Input type="password" autoComplete="off" {...form.register("password")} />
-          </Field>
 
           <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {isEdit ? "Enregistrer" : "Ajouter"}
+              {isEdit ? "Enregistrer" : "Créer"}
             </Button>
           </DialogFooter>
         </form>
@@ -132,24 +126,17 @@ function defaultsFor(host: Host | null | undefined): FormValues {
 function Field({
   label,
   error,
-  hint,
   children,
 }: {
   label: string;
   error?: string;
-  hint?: string;
   children: React.ReactNode;
 }) {
   return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the input is wrapped as children, which is valid.
-    <label className="grid gap-1 text-sm">
-      <span className="text-(--color-muted)">{label}</span>
+    <div className="grid gap-1.5 text-xs">
+      <span className="font-medium text-(--color-muted)">{label}</span>
       {children}
-      {error ? (
-        <span className="text-xs text-red-400">{error}</span>
-      ) : hint ? (
-        <span className="text-xs text-(--color-muted)">{hint}</span>
-      ) : null}
-    </label>
+      {error && <span className="text-red-400">{error}</span>}
+    </div>
   );
 }

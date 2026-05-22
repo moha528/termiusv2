@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Terminal as TerminalIcon, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useSessionsStore } from "@/stores/useSessionsStore";
@@ -10,15 +10,14 @@ export function TabsBar() {
   const closeTab = useSessionsStore((s) => s.closeTab);
 
   if (tabs.length === 0) {
-    return (
-      <div className="flex h-9 shrink-0 items-center border-b border-(--color-border) bg-(--color-panel) px-2 text-xs italic text-(--color-muted)">
-        Aucun onglet ouvert
-      </div>
-    );
+    return <div className="h-9 shrink-0 border-b border-(--color-border) bg-(--color-bg-soft)" />;
   }
 
   return (
-    <div className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-(--color-border) bg-(--color-panel)">
+    <div
+      role="tablist"
+      className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-(--color-border) bg-(--color-bg-soft)"
+    >
       {tabs.map((tab) => {
         const active = tab.id === activeTabId;
         return (
@@ -35,13 +34,15 @@ export function TabsBar() {
               }
             }}
             className={cn(
-              "group flex min-w-32 max-w-56 cursor-pointer items-center gap-2 border-r border-(--color-border) px-3 text-xs outline-none",
+              "group relative flex min-w-36 max-w-56 cursor-pointer items-center gap-2 border-r border-(--color-border) px-3 text-xs outline-none transition-colors",
               active
                 ? "bg-(--color-bg) text-(--color-text)"
-                : "text-(--color-muted) hover:bg-white/5",
+                : "text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text-soft)",
             )}
           >
+            {active && <span className="absolute inset-x-0 top-0 h-0.5 bg-(--color-accent)" />}
             <StatusDot kind={tab.status.kind} />
+            <TerminalIcon className="h-3 w-3 shrink-0 text-(--color-muted-soft)" />
             <span className="flex-1 truncate text-left">{tab.title}</span>
             <button
               type="button"
@@ -50,7 +51,7 @@ export function TabsBar() {
                 e.stopPropagation();
                 void closeTab(tab.id);
               }}
-              className="rounded p-0.5 opacity-50 hover:bg-white/10 hover:opacity-100"
+              className="rounded p-0.5 opacity-0 transition-opacity hover:bg-(--color-panel-hover) group-hover:opacity-60 hover:!opacity-100"
             >
               <X className="h-3 w-3" />
             </button>
@@ -61,12 +62,10 @@ export function TabsBar() {
   );
 }
 
-function StatusDot({ kind }: { kind: "connecting" | "open" | "closed" | "error" }) {
+function StatusDot({ kind }: { kind: "open" | "closed" }) {
   const color = {
-    connecting: "bg-yellow-400 animate-pulse",
-    open: "bg-emerald-400",
-    closed: "bg-zinc-500",
-    error: "bg-red-500",
+    open: "bg-(--color-success) shadow-[0_0_6px_var(--color-success)]",
+    closed: "bg-(--color-muted-soft)",
   }[kind];
-  return <span className={cn("h-2 w-2 shrink-0 rounded-full", color)} />;
+  return <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", color)} />;
 }

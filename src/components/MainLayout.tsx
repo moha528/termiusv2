@@ -1,3 +1,4 @@
+import { Terminal as TerminalIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useSessionsStore } from "@/stores/useSessionsStore";
@@ -5,6 +6,7 @@ import { useSettingsStore } from "@/stores/useSettingsStore";
 import { SettingsView } from "@/views/SettingsView";
 
 import { ConnectDialog } from "./ConnectDialog";
+import { Header } from "./Header";
 import { SessionPane } from "./SessionPane";
 import { Sidebar } from "./Sidebar";
 import { SidebarResizer } from "./SidebarResizer";
@@ -26,8 +28,6 @@ export function MainLayout() {
     hydrate();
   }, [hydrate]);
 
-  // Persist the currently active tab id whenever it changes (debounced is
-  // unnecessary — set_setting is one row write).
   useEffect(() => {
     setSetting("lastActiveTabId", activeTabId);
   }, [activeTabId, setSetting]);
@@ -36,39 +36,38 @@ export function MainLayout() {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-(--color-bg) text-(--color-text)">
-      <header className="flex h-10 shrink-0 items-center border-b border-(--color-border) bg-(--color-panel) px-3 text-sm font-medium">
-        <span className="text-(--color-accent)">●</span>
-        <span className="ml-2">Termius v2</span>
-      </header>
+      <Header onOpenSettings={() => setSettingsOpen(true)} />
 
       <div className="flex min-h-0 flex-1">
-        <Sidebar
-          width={sidebarWidth}
-          onOpenSession={setConnectFor}
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
-        <SidebarResizer
-          onResize={(w) => {
-            setSetting("sidebarWidth", w);
-          }}
-        />
+        <Sidebar width={sidebarWidth} onOpenSession={setConnectFor} />
+        <SidebarResizer onResize={(w) => setSetting("sidebarWidth", w)} />
 
         <main className="flex min-w-0 flex-1 flex-col">
           <TabsBar />
-          <section className="min-h-0 flex-1">
-            {activeTab ? (
-              <SessionPane tab={activeTab} />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm italic text-(--color-muted)">
-                Double-cliquez sur un serveur pour démarrer une session.
-              </div>
-            )}
+          <section className="min-h-0 flex-1 bg-(--color-bg)">
+            {activeTab ? <SessionPane tab={activeTab} /> : <EmptyState />}
           </section>
         </main>
       </div>
 
       <ConnectDialog host={connectFor} onOpenChange={(o) => !o && setConnectFor(null)} />
       <SettingsView open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-(--color-panel) text-(--color-muted-soft)">
+        <TerminalIcon className="h-6 w-6" />
+      </div>
+      <div className="max-w-xs">
+        <p className="text-sm font-medium text-(--color-text-soft)">Aucune session active</p>
+        <p className="mt-1 text-xs text-(--color-muted)">
+          Double-cliquez sur un serveur dans la barre latérale pour démarrer une session SSH.
+        </p>
+      </div>
     </div>
   );
 }

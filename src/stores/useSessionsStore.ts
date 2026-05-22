@@ -1,20 +1,21 @@
+import { create } from "zustand";
+
 import type { Host } from "@/lib/bindings/Host";
 import { sessionsApi } from "@/lib/sessions";
-import { create } from "zustand";
 
 /**
  * State of an individual session tab.
  *
- * - `connecting`: backend command in flight, no session id yet.
  * - `open`: PTY running, terminal rendered.
  * - `closed`: peer-initiated or local close; the tab survives so the user can reconnect.
- * - `error`: the open command failed (auth, network, TOFU mismatch). `message` carries the cause.
+ *
+ * Note: connecting/error are NOT tab states — they live in the ConnectDialog only.
+ * A tab is created *after* a successful auth, so the user never sees a "broken"
+ * tab in the background when authentication fails.
  */
 export type SessionStatus =
-  | { kind: "connecting" }
   | { kind: "open"; sessionId: string }
-  | { kind: "closed"; sessionId: string | null; reason: string }
-  | { kind: "error"; message: string };
+  | { kind: "closed"; sessionId: string | null; reason: string };
 
 export type SessionTab = {
   /** Stable tab id (separate from the backend sessionId so reconnects keep the tab). */
@@ -30,7 +31,9 @@ type SessionsState = {
   tabs: SessionTab[];
   activeTabId: string | null;
 
+  /** Open a fresh tab after a successful SSH connection. Throws on auth failure. */
   openTab: (host: Host, password: string) => Promise<string>;
+  /** Reconnect an existing closed tab (keeps the same tab id). Throws on failure. */
   reconnect: (tabId: string, password: string) => Promise<void>;
   closeTab: (tabId: string) => Promise<void>;
   setActive: (tabId: string) => void;
@@ -48,36 +51,25 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   activeTabId: null,
 
   async openTab(host, password) {
+    // Connect FIRST — never create a tab for a session that hasn't authenticated.
+    const sessionId = await sessionsApi.open(host.id, password);
     const id = tabId();
     const tab: SessionTab = {
       id,
       host,
       title: host.label,
       type: "ssh",
-      status: { kind: "connecting" },
+      status: { kind: "open", sessionId },
     };
     set({ tabs: [...get().tabs, tab], activeTabId: id });
-
-    try {
-      const sessionId = await sessionsApi.open(host.id, password);
-      patch(set, get, id, { status: { kind: "open", sessionId } });
-      return id;
-    } catch (e) {
-      patch(set, get, id, { status: { kind: "error", message: String(e) } });
-      throw e;
-    }
+    return id;
   },
 
   async reconnect(id, password) {
     const tab = get().tabs.find((t) => t.id === id);
     if (!tab) return;
-    patch(set, get, id, { status: { kind: "connecting" } });
-    try {
-      const sessionId = await sessionsApi.open(tab.host.id, password);
-      patch(set, get, id, { status: { kind: "open", sessionId } });
-    } catch (e) {
-      patch(set, get, id, { status: { kind: "error", message: String(e) } });
-    }
+    const sessionId = await sessionsApi.open(tab.host.id, password);
+    patch(set, get, id, { status: { kind: "open", sessionId } });
   },
 
   async closeTab(id) {
