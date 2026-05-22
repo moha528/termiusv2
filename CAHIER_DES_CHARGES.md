@@ -744,13 +744,29 @@ Pour cadrer le projet et éviter le scope creep, les éléments suivants sont **
 
 ## Annexe — Récap des phases
 
-| Phase | Objectif | Tickets | Estim. |
-|-------|----------|---------|--------|
-| 1 | Fondations + SSH minimal | 20 | 3–5 j |
-| 2 | Multi-tabs + SFTP + import config | 18 | 3 j |
-| 3 | Sécurité + SSH avancé | 15 | 2–3 j |
-| 4 | UX power user | 12 | 2 j |
-| 5 | Sync + release | 10 | 2 j |
-| **Total** | **v1.0** | **~75** | **~12–15 j** |
+| Phase | Objectif | Tickets | Estim. | Statut |
+|-------|----------|---------|--------|--------|
+| 1 | Fondations + SSH minimal | 20 | 3–5 j | ✅ |
+| 2 | Multi-tabs + SFTP + import config | 18 | 3 j | ✅ (T18 E2E reporté, tests manuels OK) |
+| 3 | Sécurité + SSH avancé | 15 | 2–3 j | 🟡 P3-T06 (keychain) déjà fait |
+| 4 | UX power user | 12 | 2 j | 🟡 P4-T11 (Settings) partiellement fait |
+| 5 | Sync + release | 10 | 2 j | ⏳ |
+| **Total** | **v1.0** | **~75** | **~12–15 j** | |
 
 Note : ces estimations supposent un travail à plein temps. Avec des agents parallèles, beaucoup de tickets indépendants au sein d'une même phase peuvent être exécutés en parallèle (notamment dans les phases 1, 3 et 4).
+
+### Hors-roadmap implémenté
+
+Au cours du dev, plusieurs ajouts UX non listés dans la roadmap initiale ont été livrés :
+
+- **Custom window chrome** : Mica sur Windows 11 21H2+, fallback DwmSetWindowAttribute caption color sur Win 10
+- **Command palette** (`Ctrl+K`) avec fuzzy search sur hosts + actions globales — équivalent simplifié du P4-T12 (Quick Connect)
+- **Workspace homepage** : grille de hosts cards quand pas d'onglet — équivalent du Termius "Hosts overview"
+- **Toasts globaux** via `sonner` sur toutes les actions backend (loading → success/error) avec theme dark/light auto
+- **Thèmes app vs terminal séparés** : preview live, padding interne, Catppuccin Mocha/Latte ajoutés
+- **Copy/Cut/Paste SFTP** : clipboard partagé entre les deux panes avec menu contextuel sur zone vide
+- **Sélection multiple aware** : right-click sur sélection applique l'action au lot ; clic hors sélection narrow
+- **Auto-refresh post-transfer** : le pane destinataire recharge tout seul à la fin d'un upload/download
+- **Menu contextuel webview désactivé** sauf inputs : finis les "Inspect Element" parasites
+- **Sessions persistantes** au démarrage avec dialog "Restaurer ?" + option "Mémoriser ce choix"
+- **dragDropEnabled: false** sur la fenêtre pour ne pas court-circuiter notre DnD HTML5 interne
