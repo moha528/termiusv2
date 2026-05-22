@@ -3,7 +3,7 @@ use ts_rs::TS;
 
 /// A remote SSH endpoint persisted in the local database.
 #[derive(Debug, Clone, Serialize, Deserialize, TS, sqlx::FromRow)]
-#[ts(export, export_to = "../src/lib/bindings/Host.ts")]
+#[ts(export, export_to = "../../src/lib/bindings/Host.ts")]
 pub struct Host {
     pub id: String,
     pub label: String,
@@ -17,7 +17,7 @@ pub struct Host {
 
 /// Payload for creating or updating a [`Host`]. `id` is server-generated on create.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../src/lib/bindings/HostInput.ts")]
+#[ts(export, export_to = "../../src/lib/bindings/HostInput.ts")]
 pub struct HostInput {
     pub label: String,
     pub hostname: String,
