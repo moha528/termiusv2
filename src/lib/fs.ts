@@ -7,6 +7,7 @@ export const localFs = {
   homeDir: () => invoke<string>("local_home_dir"),
   listDir: (path: string) => invoke<FileEntry[]>("local_list_dir", { path }),
   mkdir: (path: string) => invoke<void>("local_mkdir", { path }),
+  createFile: (path: string) => invoke<void>("local_create_file", { path }),
   remove: (path: string) => invoke<void>("local_remove", { path }),
   rename: (from: string, to: string) => invoke<void>("local_rename", { from, to }),
 };
@@ -21,6 +22,7 @@ export type FsAdapter = {
   initialPath: () => Promise<string>;
   listDir: (path: string) => Promise<FileEntry[]>;
   mkdir: (path: string) => Promise<void>;
+  createFile: (path: string) => Promise<void>;
   remove: (path: string) => Promise<void>;
   rename: (from: string, to: string) => Promise<void>;
 };
@@ -35,6 +37,7 @@ export const localAdapter: FsAdapter = {
   initialPath: () => localFs.homeDir(),
   listDir: (p) => localFs.listDir(p),
   mkdir: (p) => localFs.mkdir(p),
+  createFile: (p) => localFs.createFile(p),
   remove: (p) => localFs.remove(p),
   rename: (f, t) => localFs.rename(f, t),
 };
@@ -53,6 +56,7 @@ export function makeRemoteAdapter(sessionId: string): FsAdapter {
     initialPath: async () => "/",
     listDir: (p) => sftpApi.listDir(sessionId, p),
     mkdir: (p) => sftpApi.mkdir(sessionId, p),
+    createFile: (p) => sftpApi.createFile(sessionId, p),
     remove: (p) => sftpApi.remove(sessionId, p),
     rename: (f, t) => sftpApi.rename(sessionId, f, t),
   };

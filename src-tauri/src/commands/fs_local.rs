@@ -70,6 +70,18 @@ pub fn local_mkdir(path: String) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Create an empty file. Errors out if the path already exists so we don't
+/// accidentally truncate something.
+#[tauri::command]
+pub fn local_create_file(path: String) -> Result<(), AppError> {
+    let p = Path::new(&path);
+    if p.exists() {
+        return Err(AppError(anyhow::anyhow!("{} already exists", path)));
+    }
+    std::fs::File::create(p).map_err(|e| AppError(anyhow::anyhow!(e)))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn local_remove(path: String) -> Result<(), AppError> {
     let p = Path::new(&path);

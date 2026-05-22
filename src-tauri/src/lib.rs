@@ -68,6 +68,7 @@ pub fn run() {
             commands::sftp::sftp_list_dir,
             commands::sftp::sftp_stat,
             commands::sftp::sftp_mkdir,
+            commands::sftp::sftp_create_file,
             commands::sftp::sftp_remove,
             commands::sftp::sftp_rename,
             commands::sftp::sftp_upload,
@@ -75,6 +76,7 @@ pub fn run() {
             commands::fs_local::local_home_dir,
             commands::fs_local::local_list_dir,
             commands::fs_local::local_mkdir,
+            commands::fs_local::local_create_file,
             commands::fs_local::local_remove,
             commands::fs_local::local_rename,
         ])

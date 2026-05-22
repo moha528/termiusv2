@@ -79,6 +79,18 @@ pub async fn sftp_mkdir(
 }
 
 #[tauri::command]
+pub async fn sftp_create_file(
+    sessions: State<'_, SessionManager>,
+    session_id: String,
+    path: String,
+) -> Result<(), AppError> {
+    let entry = ensure_sftp(sessions.inner(), &session_id).await?;
+    let guard = entry.lock().await;
+    let sftp = guard.sftp.as_ref().expect("sftp initialised");
+    Ok(sftp.create_file(&path).await?)
+}
+
+#[tauri::command]
 pub async fn sftp_remove(
     sessions: State<'_, SessionManager>,
     session_id: String,

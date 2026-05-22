@@ -93,6 +93,28 @@ impl SftpClient {
             .with_context(|| format!("mkdir {path}"))
     }
 
+    /// Create an empty file (`create` opens with truncate). Returns an error
+    /// if `path` already exists so we don't clobber data.
+    pub async fn create_file(&self, path: &str) -> Result<()> {
+        if self
+            .inner
+            .try_exists(path.to_string())
+            .await
+            .unwrap_or(false)
+        {
+            anyhow::bail!("{path} already exists");
+        }
+        let mut file = self
+            .inner
+            .create(path.to_string())
+            .await
+            .with_context(|| format!("create {path}"))?;
+        use tokio::io::AsyncWriteExt;
+        file.shutdown()
+            .await
+            .with_context(|| format!("flush {path}"))
+    }
+
     /// Remove `path`. Dispatches between `remove_file` and `remove_dir` based
     /// on a stat — the SFTP protocol has distinct opcodes for each.
     pub async fn remove(&self, path: &str) -> Result<()> {

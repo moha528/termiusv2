@@ -1,17 +1,38 @@
 import {
   ChevronRight,
   File as FileIcon,
+  FilePlus,
   Folder,
   FolderOpen,
+  FolderPlus,
   Home,
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { FileEntry } from "@/lib/bindings/FileEntry";
 import { type FsAdapter, joinPath, parentOf, splitPath } from "@/lib/fs";
 import { cn } from "@/lib/utils";
+
+import { FilePropertiesDialog } from "./FilePropertiesDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+} from "./ui/AlertDialog";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "./ui/ContextMenu";
+import { PromptDialog } from "./ui/PromptDialog";
 
 type Props = {
   adapter: FsAdapter;
@@ -19,16 +40,29 @@ type Props = {
 };
 
 /**
- * Renders one side of the SFTP dual-pane. Generic over the data source (`adapter`),
- * so both Local and Remote panes share the same UX (breadcrumb, refresh, navigation).
+ * One side of the SFTP dual-pane. Driven by an `FsAdapter` so the same
+ * component renders Local and Remote with identical UX.
  *
- * Selection / drag-and-drop / context-menu actions are added in P2-T10 and T11.
+ * Actions exposed here (P2-T10):
+ * - Toolbar: New folder / New file
+ * - Right-click on a row: Rename / Delete / Properties
+ *
+ * Selection and drag&drop arrive in P2-T11.
  */
 export function FilePane({ adapter, title }: Props) {
   const [path, setPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  type Dialogs =
+    | { kind: "none" }
+    | { kind: "mkdir" }
+    | { kind: "newFile" }
+    | { kind: "rename"; entry: FileEntry }
+    | { kind: "delete"; entry: FileEntry }
+    | { kind: "properties"; entry: FileEntry };
+  const [dialog, setDialog] = useState<Dialogs>({ kind: "none" });
 
   const reload = useCallback(
     async (target: string) => {
@@ -47,7 +81,6 @@ export function FilePane({ adapter, title }: Props) {
     [adapter],
   );
 
-  // On adapter change, jump to its initial path and load.
   useEffect(() => {
     adapter
       .initialPath()
@@ -59,21 +92,42 @@ export function FilePane({ adapter, title }: Props) {
     void reload(next);
   };
 
+  const refresh = () => {
+    if (path) void reload(path);
+  };
+
   const goUp = () => {
     if (!path) return;
     const parent = parentOf(adapter, path);
     if (parent !== path) navigateTo(parent);
   };
 
+  const closeDialog = () => setDialog({ kind: "none" });
+
+  const dialogPath = useMemo(() => {
+    if (!path) return null;
+    if (dialog.kind === "rename" || dialog.kind === "delete" || dialog.kind === "properties") {
+      return joinPath(adapter, path, dialog.entry.name);
+    }
+    return null;
+  }, [adapter, path, dialog]);
+
   return (
     <section className="flex min-w-0 flex-1 flex-col border-r border-(--color-border) last:border-r-0">
       <header className="flex h-9 shrink-0 items-center justify-between border-b border-(--color-border) bg-(--color-panel) px-2 text-xs">
         <span className="font-semibold uppercase tracking-wider text-(--color-muted)">{title}</span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
+          <IconBtn label="New folder" onClick={() => setDialog({ kind: "mkdir" })}>
+            <FolderPlus className="h-3.5 w-3.5" />
+          </IconBtn>
+          <IconBtn label="New file" onClick={() => setDialog({ kind: "newFile" })}>
+            <FilePlus className="h-3.5 w-3.5" />
+          </IconBtn>
+          <div className="mx-1 h-4 w-px bg-(--color-border)" />
           <IconBtn label="Home" onClick={() => adapter.initialPath().then(navigateTo)}>
             <Home className="h-3.5 w-3.5" />
           </IconBtn>
-          <IconBtn label="Refresh" onClick={() => path && void reload(path)}>
+          <IconBtn label="Refresh" onClick={refresh}>
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
           </IconBtn>
         </div>
@@ -120,45 +174,159 @@ export function FilePane({ adapter, title }: Props) {
                 </tr>
               )}
               {entries.map((entry) => (
-                <tr
-                  key={entry.name}
-                  onDoubleClick={() => {
-                    if (!path) return;
-                    if (entry.is_dir) {
-                      navigateTo(joinPath(adapter, path, entry.name));
-                    }
-                  }}
-                  className={cn(
-                    "cursor-pointer hover:bg-(--color-panel-hover)",
-                    entry.is_dir && "text-(--color-text)",
-                    !entry.is_dir && "text-(--color-text-soft)",
-                  )}
-                >
-                  <td className="flex items-center gap-2 px-2 py-1">
-                    {entry.is_dir ? (
-                      <FolderOpen className="h-3.5 w-3.5 text-(--color-accent)" />
-                    ) : (
-                      <FileIcon className="h-3.5 w-3.5 text-(--color-muted)" />
+                <ContextMenu key={entry.name}>
+                  <ContextMenuTrigger asChild>
+                    <tr
+                      onDoubleClick={() => {
+                        if (!path) return;
+                        if (entry.is_dir) navigateTo(joinPath(adapter, path, entry.name));
+                      }}
+                      className={cn(
+                        "cursor-pointer hover:bg-(--color-panel-hover)",
+                        entry.is_dir ? "text-(--color-text)" : "text-(--color-text-soft)",
+                      )}
+                    >
+                      <td className="flex items-center gap-2 px-2 py-1">
+                        {entry.is_dir ? (
+                          <FolderOpen className="h-3.5 w-3.5 text-(--color-accent)" />
+                        ) : (
+                          <FileIcon className="h-3.5 w-3.5 text-(--color-muted)" />
+                        )}
+                        <span className="truncate">{entry.name}</span>
+                        {entry.is_symlink && (
+                          <span className="rounded bg-white/5 px-1 text-[10px] text-(--color-muted)">
+                            ↪
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1 text-right font-mono text-(--color-muted)">
+                        {entry.is_dir ? "—" : formatSize(Number(entry.size ?? 0))}
+                      </td>
+                      <td className="hidden px-2 py-1 text-(--color-muted) md:table-cell">
+                        {entry.mtime ? formatDate(entry.mtime) : ""}
+                      </td>
+                    </tr>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    {entry.is_dir && (
+                      <ContextMenuItem
+                        onSelect={() => {
+                          if (path) navigateTo(joinPath(adapter, path, entry.name));
+                        }}
+                      >
+                        Ouvrir
+                      </ContextMenuItem>
                     )}
-                    <span className="truncate">{entry.name}</span>
-                    {entry.is_symlink && (
-                      <span className="rounded bg-white/5 px-1 text-[10px] text-(--color-muted)">
-                        ↪
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 py-1 text-right font-mono text-(--color-muted)">
-                    {entry.is_dir ? "—" : formatSize(entry.size ?? 0)}
-                  </td>
-                  <td className="hidden px-2 py-1 text-(--color-muted) md:table-cell">
-                    {entry.mtime ? formatDate(entry.mtime) : ""}
-                  </td>
-                </tr>
+                    <ContextMenuItem onSelect={() => setDialog({ kind: "rename", entry })}>
+                      Renommer…
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      destructive
+                      onSelect={() => setDialog({ kind: "delete", entry })}
+                    >
+                      Supprimer…
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onSelect={() => setDialog({ kind: "properties", entry })}>
+                      Propriétés
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      <PromptDialog
+        open={dialog.kind === "mkdir"}
+        onOpenChange={(o) => !o && closeDialog()}
+        title="Nouveau dossier"
+        label="Nom"
+        confirmText="Créer"
+        onConfirm={async (name) => {
+          if (!path) return;
+          await adapter.mkdir(joinPath(adapter, path, name));
+          refresh();
+        }}
+      />
+
+      <PromptDialog
+        open={dialog.kind === "newFile"}
+        onOpenChange={(o) => !o && closeDialog()}
+        title="Nouveau fichier"
+        label="Nom"
+        confirmText="Créer"
+        onConfirm={async (name) => {
+          if (!path) return;
+          await adapter.createFile(joinPath(adapter, path, name));
+          refresh();
+        }}
+      />
+
+      <PromptDialog
+        open={dialog.kind === "rename"}
+        onOpenChange={(o) => !o && closeDialog()}
+        title="Renommer"
+        label="Nouveau nom"
+        confirmText="Renommer"
+        initialValue={dialog.kind === "rename" ? dialog.entry.name : ""}
+        onConfirm={async (newName) => {
+          if (!path || dialog.kind !== "rename") return;
+          const from = joinPath(adapter, path, dialog.entry.name);
+          const to = joinPath(adapter, path, newName);
+          await adapter.rename(from, to);
+          refresh();
+        }}
+      />
+
+      <AlertDialog open={dialog.kind === "delete"} onOpenChange={(o) => !o && closeDialog()}>
+        <AlertDialogContent>
+          <AlertDialogTitle>Supprimer ?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {dialog.kind === "delete"
+              ? `« ${dialog.entry.name} » sera supprimé${dialog.entry.is_dir ? " avec son contenu" : ""}. Action irréversible.`
+              : ""}
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <button
+                type="button"
+                className="rounded-md border border-(--color-border) px-3 py-1.5 text-sm hover:bg-(--color-panel-hover)"
+              >
+                Annuler
+              </button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!path || dialog.kind !== "delete") return;
+                  const target = joinPath(adapter, path, dialog.entry.name);
+                  try {
+                    await adapter.remove(target);
+                    refresh();
+                  } catch (e) {
+                    setError(String(e));
+                  } finally {
+                    closeDialog();
+                  }
+                }}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500"
+              >
+                Supprimer
+              </button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <FilePropertiesDialog
+        open={dialog.kind === "properties"}
+        onOpenChange={(o) => !o && closeDialog()}
+        path={dialogPath ?? ""}
+        entry={dialog.kind === "properties" ? dialog.entry : null}
+      />
     </section>
   );
 }
@@ -220,6 +388,7 @@ function IconBtn({
     <button
       type="button"
       aria-label={label}
+      title={label}
       onClick={onClick}
       className="rounded p-1 text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text)"
     >
