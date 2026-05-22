@@ -1,10 +1,22 @@
 import { useState } from "react";
+
+import { useSessionsStore } from "@/stores/useSessionsStore";
+
+import { ConnectDialog } from "./ConnectDialog";
+import { SessionPane } from "./SessionPane";
 import { Sidebar } from "./Sidebar";
 import { SidebarResizer } from "./SidebarResizer";
 import { TabsBar } from "./TabsBar";
 
+import type { Host } from "@/lib/bindings/Host";
+
 export function MainLayout() {
   const [sidebarWidth, setSidebarWidth] = useState(260);
+  const tabs = useSessionsStore((s) => s.tabs);
+  const activeTabId = useSessionsStore((s) => s.activeTabId);
+  const [connectFor, setConnectFor] = useState<Host | null>(null);
+
+  const activeTab = tabs.find((t) => t.id === activeTabId);
 
   return (
     <div className="flex h-screen w-screen flex-col bg-(--color-bg) text-(--color-text)">
@@ -14,24 +26,24 @@ export function MainLayout() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <Sidebar
-          width={sidebarWidth}
-          onOpenSession={(host) => {
-            // Branché en P1-T15 (système d'onglets). Pour l'instant, log de debug.
-            console.info("open session for", host.label, host.id);
-          }}
-        />
+        <Sidebar width={sidebarWidth} onOpenSession={setConnectFor} />
         <SidebarResizer onResize={setSidebarWidth} />
 
         <main className="flex min-w-0 flex-1 flex-col">
           <TabsBar />
-          <section className="flex flex-1 items-center justify-center text-(--color-muted)">
-            <p className="text-sm italic">
-              Ouvrez un serveur depuis la sidebar pour démarrer une session.
-            </p>
+          <section className="min-h-0 flex-1">
+            {activeTab ? (
+              <SessionPane tab={activeTab} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm italic text-(--color-muted)">
+                Double-cliquez sur un serveur pour démarrer une session.
+              </div>
+            )}
           </section>
         </main>
       </div>
+
+      <ConnectDialog host={connectFor} onOpenChange={(o) => !o && setConnectFor(null)} />
     </div>
   );
 }

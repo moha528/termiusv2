@@ -3,4 +3,13 @@
 /**
  * A remote SSH endpoint persisted in the local database.
  */
-export type Host = { id: string, label: string, hostname: string, port: number, username: string, group_id: string | null, created_at: string, updated_at: string, };
+export type Host = {
+  id: string;
+  label: string;
+  hostname: string;
+  port: number;
+  username: string;
+  group_id: string | null;
+  created_at: string;
+  updated_at: string;
+};

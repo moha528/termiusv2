@@ -3,4 +3,11 @@
 /**
  * A folder used to organize hosts in the sidebar. Groups form a tree via `parent_id`.
  */
-export type Group = { id: string, name: string, parent_id: string | null, position: number, created_at: string, updated_at: string, };
+export type Group = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
