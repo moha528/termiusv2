@@ -12,7 +12,15 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { FileEntry } from "@/lib/bindings/FileEntry";
-import { type FsAdapter, joinPath, parentOf, splitPath } from "@/lib/fs";
+import {
+  DRAG_MIME,
+  type FileDragPayload,
+  type FsAdapter,
+  joinPath,
+  parentOf,
+  readDragPayload,
+  splitPath,
+} from "@/lib/fs";
 import { cn } from "@/lib/utils";
 
 import { FilePropertiesDialog } from "./FilePropertiesDialog";
@@ -37,6 +45,12 @@ import { PromptDialog } from "./ui/PromptDialog";
 type Props = {
   adapter: FsAdapter;
   title: string;
+  /**
+   * Called when the user drops rows from the *other* pane onto this one.
+   * The pane reports its own current path so the parent can compose the
+   * destination path for each transferred file.
+   */
+  onCrossDrop?: (payload: FileDragPayload, destAdapter: FsAdapter, destPath: string) => void;
 };
 
 /**
@@ -49,11 +63,14 @@ type Props = {
  *
  * Selection and drag&drop arrive in P2-T11.
  */
-export function FilePane({ adapter, title }: Props) {
+export function FilePane({ adapter, title, onCrossDrop }: Props) {
   const [path, setPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [lastClicked, setLastClicked] = useState<string | null>(null);
+  const [isDropTarget, setIsDropTarget] = useState(false);
 
   type Dialogs =
     | { kind: "none" }
@@ -88,6 +105,77 @@ export function FilePane({ adapter, title }: Props) {
       .catch((e) => setError(String(e)));
   }, [adapter, reload]);
 
+  // Whenever we change directory, clear selection — names from the old dir
+  // would be meaningless in the new one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `path` is the trigger, not a body dep
+  useEffect(() => {
+    setSelected(new Set());
+    setLastClicked(null);
+  }, [path]);
+
+  const handleRowClick = (e: React.MouseEvent, name: string) => {
+    if (e.shiftKey && lastClicked) {
+      const names = entries.map((x) => x.name);
+      const a = names.indexOf(lastClicked);
+      const b = names.indexOf(name);
+      if (a >= 0 && b >= 0) {
+        const [from, to] = a < b ? [a, b] : [b, a];
+        setSelected(new Set(names.slice(from, to + 1)));
+        return;
+      }
+    }
+    if (e.ctrlKey || e.metaKey) {
+      const next = new Set(selected);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      setSelected(next);
+      setLastClicked(name);
+      return;
+    }
+    setSelected(new Set([name]));
+    setLastClicked(name);
+  };
+
+  const handleDragStart = (e: React.DragEvent, name: string) => {
+    if (!path) return;
+    // If the dragged row isn't already in the selection, treat it as a
+    // single-row drag (matches Finder / Explorer convention).
+    let names: string[];
+    if (selected.has(name)) {
+      names = Array.from(selected);
+    } else {
+      names = [name];
+      setSelected(new Set([name]));
+    }
+    const payload: FileDragPayload = {
+      sourceKind: adapter.kind,
+      basePath: path,
+      names,
+    };
+    e.dataTransfer.setData(DRAG_MIME, JSON.stringify(payload));
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
+  const handlePaneDragOver = (e: React.DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes(DRAG_MIME)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    if (!isDropTarget) setIsDropTarget(true);
+  };
+
+  const handlePaneDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget === e.target) setIsDropTarget(false);
+  };
+
+  const handlePaneDrop = (e: React.DragEvent) => {
+    setIsDropTarget(false);
+    const payload = readDragPayload(e.dataTransfer);
+    if (!payload || !path) return;
+    e.preventDefault();
+    if (payload.sourceKind === adapter.kind) return; // same-side: ignored for now
+    onCrossDrop?.(payload, adapter, path);
+  };
+
   const navigateTo = (next: string) => {
     void reload(next);
   };
@@ -113,7 +201,15 @@ export function FilePane({ adapter, title }: Props) {
   }, [adapter, path, dialog]);
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col border-r border-(--color-border) last:border-r-0">
+    <section
+      onDragOver={handlePaneDragOver}
+      onDragLeave={handlePaneDragLeave}
+      onDrop={handlePaneDrop}
+      className={cn(
+        "flex min-w-0 flex-1 flex-col border-r border-(--color-border) last:border-r-0 transition-colors",
+        isDropTarget && "bg-(--color-accent-bg)/30 ring-2 ring-inset ring-(--color-accent)",
+      )}
+    >
       <header className="flex h-9 shrink-0 items-center justify-between border-b border-(--color-border) bg-(--color-panel) px-2 text-xs">
         <span className="font-semibold uppercase tracking-wider text-(--color-muted)">{title}</span>
         <div className="flex items-center gap-0.5">
@@ -177,13 +273,26 @@ export function FilePane({ adapter, title }: Props) {
                 <ContextMenu key={entry.name}>
                   <ContextMenuTrigger asChild>
                     <tr
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, entry.name)}
+                      onClick={(e) => handleRowClick(e, entry.name)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          if (!path) return;
+                          if (entry.is_dir) navigateTo(joinPath(adapter, path, entry.name));
+                        }
+                      }}
                       onDoubleClick={() => {
                         if (!path) return;
                         if (entry.is_dir) navigateTo(joinPath(adapter, path, entry.name));
                       }}
                       className={cn(
-                        "cursor-pointer hover:bg-(--color-panel-hover)",
-                        entry.is_dir ? "text-(--color-text)" : "text-(--color-text-soft)",
+                        "cursor-pointer transition-colors",
+                        selected.has(entry.name)
+                          ? "bg-(--color-accent-bg)/60 text-(--color-text)"
+                          : "hover:bg-(--color-panel-hover)",
+                        !selected.has(entry.name) &&
+                          (entry.is_dir ? "text-(--color-text)" : "text-(--color-text-soft)"),
                       )}
                     >
                       <td className="flex items-center gap-2 px-2 py-1">

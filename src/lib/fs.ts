@@ -103,3 +103,29 @@ export function parentOf(adapter: FsAdapter, path: string): string {
   if (segments.length === 0) return prefix || path;
   return prefix + segments.slice(0, -1).join(adapter.separator);
 }
+
+/** MIME type we attach to inter-pane drag events so we can detect our own drops. */
+export const DRAG_MIME = "application/x-termiusv2-files";
+
+/**
+ * What we encode in `dataTransfer` when the user drags one or more rows from
+ * a pane. The receiver decides whether to upload or download based on its own
+ * `adapter.kind` vs `sourceKind`.
+ */
+export type FileDragPayload = {
+  sourceKind: "local" | "remote";
+  /** Full path of the directory those names belong to. */
+  basePath: string;
+  /** File names (not paths) selected at drag time. */
+  names: string[];
+};
+
+export function readDragPayload(dt: DataTransfer): FileDragPayload | null {
+  const raw = dt.getData(DRAG_MIME);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as FileDragPayload;
+  } catch {
+    return null;
+  }
+}
