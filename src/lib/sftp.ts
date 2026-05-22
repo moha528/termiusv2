@@ -17,7 +17,10 @@ export const sftpApi = {
     invoke<string>("sftp_upload", { sessionId, localPath, remotePath }),
   download: (sessionId: string, remotePath: string, localPath: string) =>
     invoke<string>("sftp_download", { sessionId, remotePath, localPath }),
+  cancelTransfer: (transferId: string) => invoke<boolean>("sftp_cancel_transfer", { transferId }),
 };
+
+export const TRANSFER_CANCELLED_MESSAGE = "cancelled";
 
 export type TransferProgress = {
   transferId: string;

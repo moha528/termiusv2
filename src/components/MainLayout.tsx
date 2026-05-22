@@ -13,6 +13,7 @@ import { SessionPane } from "./SessionPane";
 import { Sidebar } from "./Sidebar";
 import { SidebarResizer } from "./SidebarResizer";
 import { TabsBar } from "./TabsBar";
+import { TransferPanel } from "./TransferPanel";
 
 import type { Host } from "@/lib/bindings/Host";
 
@@ -72,6 +73,7 @@ export function MainLayout() {
           <section className="min-h-0 flex-1 bg-(--color-bg)">
             {activeTab ? <SessionPane tab={activeTab} /> : <EmptyState />}
           </section>
+          <TransferPanel />
         </main>
       </div>
 

@@ -5,5 +5,7 @@
 //! the shared `FileEntry` model.
 
 mod client;
+mod transfers;
 
-pub use client::SftpClient;
+pub use client::{SftpClient, TRANSFER_CANCELLED};
+pub use transfers::TransferRegistry;

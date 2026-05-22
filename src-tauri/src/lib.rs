@@ -39,6 +39,7 @@ pub fn run() {
             });
             app.manage(pool);
             app.manage(ssh::SessionManager::default());
+            app.manage(sftp::TransferRegistry::default());
 
             #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
@@ -73,6 +74,7 @@ pub fn run() {
             commands::sftp::sftp_rename,
             commands::sftp::sftp_upload,
             commands::sftp::sftp_download,
+            commands::sftp::sftp_cancel_transfer,
             commands::fs_local::local_home_dir,
             commands::fs_local::local_list_dir,
             commands::fs_local::local_mkdir,

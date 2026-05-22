@@ -6,12 +6,12 @@
 //! `Session` and reuse it for every SFTP command.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use std::sync::Arc;
-
 use russh::client::Handle;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::FileAttributes;
@@ -144,8 +144,15 @@ impl SftpClient {
     }
 
     /// Stream `local` → `remote`. Calls `on_progress(bytes_done, total)` every
-    /// chunk, so the caller can decide how often to forward updates to the UI.
-    pub async fn upload<F>(&self, local: &Path, remote: &str, mut on_progress: F) -> Result<u64>
+    /// chunk. `cancel` is checked between chunks; if set the function returns
+    /// [`TRANSFER_CANCELLED`] as the error message so callers can detect it.
+    pub async fn upload<F>(
+        &self,
+        local: &Path,
+        remote: &str,
+        cancel: Arc<AtomicBool>,
+        mut on_progress: F,
+    ) -> Result<u64>
     where
         F: FnMut(u64, u64) + Send,
     {
@@ -166,6 +173,9 @@ impl SftpClient {
         let mut buf = vec![0u8; TRANSFER_BUF_SIZE];
         let mut transferred = 0u64;
         loop {
+            if cancel.load(Ordering::Relaxed) {
+                anyhow::bail!("{TRANSFER_CANCELLED}");
+            }
             let n = source.read(&mut buf).await.context("read local")?;
             if n == 0 {
                 break;
@@ -178,8 +188,14 @@ impl SftpClient {
         Ok(transferred)
     }
 
-    /// Stream `remote` → `local`. Same progress contract as [`Self::upload`].
-    pub async fn download<F>(&self, remote: &str, local: &Path, mut on_progress: F) -> Result<u64>
+    /// Stream `remote` → `local`. Same contract as [`Self::upload`].
+    pub async fn download<F>(
+        &self,
+        remote: &str,
+        local: &Path,
+        cancel: Arc<AtomicBool>,
+        mut on_progress: F,
+    ) -> Result<u64>
     where
         F: FnMut(u64, u64) + Send,
     {
@@ -210,6 +226,9 @@ impl SftpClient {
         let mut buf = vec![0u8; TRANSFER_BUF_SIZE];
         let mut transferred = 0u64;
         loop {
+            if cancel.load(Ordering::Relaxed) {
+                anyhow::bail!("{TRANSFER_CANCELLED}");
+            }
             let n = source.read(&mut buf).await.context("read remote")?;
             if n == 0 {
                 break;
@@ -222,6 +241,11 @@ impl SftpClient {
         Ok(transferred)
     }
 }
+
+/// Sentinel string used as the error message when a transfer is cancelled
+/// through the registry. The frontend matches on this exact value to render
+/// the "cancelled" badge in the transfers list.
+pub const TRANSFER_CANCELLED: &str = "cancelled";
 
 fn file_entry_from(name: String, attrs: &FileAttributes) -> FileEntry {
     let is_dir = attrs.is_dir();

@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::models::FileEntry;
-use crate::sftp::SftpClient;
+use crate::sftp::{SftpClient, TransferRegistry};
 use crate::ssh::{SessionEntry, SessionManager};
 use crate::AppError;
 
@@ -142,16 +142,20 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 pub async fn sftp_upload(
     app: AppHandle,
     sessions: State<'_, SessionManager>,
+    registry: State<'_, TransferRegistry>,
     session_id: String,
     local_path: String,
     remote_path: String,
 ) -> Result<String, AppError> {
     let session_handle = clone_session_handle(sessions.inner(), &session_id).await?;
     let transfer_id = Uuid::new_v4().to_string();
+    let cancel = registry.register(transfer_id.clone()).await;
     spawn_transfer(
         app,
         session_handle,
+        registry.inner().clone(),
         transfer_id.clone(),
+        cancel,
         TransferKind::Upload {
             local: PathBuf::from(local_path),
             remote: remote_path,
@@ -164,22 +168,34 @@ pub async fn sftp_upload(
 pub async fn sftp_download(
     app: AppHandle,
     sessions: State<'_, SessionManager>,
+    registry: State<'_, TransferRegistry>,
     session_id: String,
     remote_path: String,
     local_path: String,
 ) -> Result<String, AppError> {
     let session_handle = clone_session_handle(sessions.inner(), &session_id).await?;
     let transfer_id = Uuid::new_v4().to_string();
+    let cancel = registry.register(transfer_id.clone()).await;
     spawn_transfer(
         app,
         session_handle,
+        registry.inner().clone(),
         transfer_id.clone(),
+        cancel,
         TransferKind::Download {
             remote: remote_path,
             local: PathBuf::from(local_path),
         },
     );
     Ok(transfer_id)
+}
+
+#[tauri::command]
+pub async fn sftp_cancel_transfer(
+    registry: State<'_, TransferRegistry>,
+    transfer_id: String,
+) -> Result<bool, AppError> {
+    Ok(registry.cancel(&transfer_id).await)
 }
 
 enum TransferKind {
@@ -204,12 +220,15 @@ async fn clone_session_handle(
 fn spawn_transfer(
     app: AppHandle,
     handle: Arc<russh::client::Handle<crate::ssh::client::Handler>>,
+    registry: TransferRegistry,
     transfer_id: String,
+    cancel: Arc<std::sync::atomic::AtomicBool>,
     kind: TransferKind,
 ) {
     tokio::spawn(async move {
         let started = Instant::now();
-        let result = run_transfer(&app, &handle, &transfer_id, kind, started).await;
+        let result = run_transfer(&app, &handle, &transfer_id, cancel, kind, started).await;
+        registry.unregister(&transfer_id).await;
         let elapsed_ms = started.elapsed().as_millis() as u64;
         let done = match result {
             Ok(bytes_transferred) => TransferDone {
@@ -233,6 +252,7 @@ async fn run_transfer(
     app: &AppHandle,
     handle: &Arc<russh::client::Handle<crate::ssh::client::Handler>>,
     transfer_id: &str,
+    cancel: Arc<std::sync::atomic::AtomicBool>,
     kind: TransferKind,
     started: Instant,
 ) -> anyhow::Result<u64> {
@@ -259,10 +279,11 @@ async fn run_transfer(
 
     match kind {
         TransferKind::Upload { local, remote } => {
-            sftp.upload(&local, &remote, &mut on_progress).await
+            sftp.upload(&local, &remote, cancel, &mut on_progress).await
         }
         TransferKind::Download { remote, local } => {
-            sftp.download(&remote, &local, &mut on_progress).await
+            sftp.download(&remote, &local, cancel, &mut on_progress)
+                .await
         }
     }
 }
