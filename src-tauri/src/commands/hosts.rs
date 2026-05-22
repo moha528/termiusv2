@@ -12,10 +12,7 @@ pub async fn list_hosts(pool: State<'_, DbPool>) -> Result<Vec<Host>, AppError> 
 }
 
 #[tauri::command]
-pub async fn create_host(
-    pool: State<'_, DbPool>,
-    input: HostInput,
-) -> Result<Host, AppError> {
+pub async fn create_host(pool: State<'_, DbPool>, input: HostInput) -> Result<Host, AppError> {
     Ok(dao::create(pool.inner(), input).await?)
 }
 

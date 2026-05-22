@@ -56,14 +56,16 @@ mod tests {
         let pool = init_pool(&db_path).await.expect("init pool");
 
         // Both tables must exist.
-        let tables: Vec<(String,)> = sqlx::query_as(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-        )
-        .fetch_all(&pool)
-        .await
-        .expect("fetch tables");
+        let tables: Vec<(String,)> =
+            sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+                .fetch_all(&pool)
+                .await
+                .expect("fetch tables");
         let names: Vec<String> = tables.into_iter().map(|(n,)| n).collect();
         assert!(names.contains(&"hosts".to_string()), "hosts table missing");
-        assert!(names.contains(&"groups".to_string()), "groups table missing");
+        assert!(
+            names.contains(&"groups".to_string()),
+            "groups table missing"
+        );
     }
 }

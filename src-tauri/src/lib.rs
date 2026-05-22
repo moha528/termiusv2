@@ -24,17 +24,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let app_data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("resolve app data dir");
+            let app_data_dir = app.path().app_data_dir().expect("resolve app data dir");
             let db_path = store::default_db_path(&app_data_dir);
 
             // sqlx is async — run a blocking task to init the pool before Tauri starts.
             let pool = tauri::async_runtime::block_on(async {
-                store::init_pool(&db_path)
-                    .await
-                    .expect("init sqlite pool")
+                store::init_pool(&db_path).await.expect("init sqlite pool")
             });
             app.manage(pool);
             Ok(())
