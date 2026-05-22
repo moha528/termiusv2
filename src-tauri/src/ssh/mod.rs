@@ -4,5 +4,7 @@
 //! `connect → open_pty → write / read → close`.
 
 pub mod client;
+pub mod pty;
 
 pub use client::{Session, SshError};
+pub use pty::{PtyChannel, DEFAULT_TERM};
