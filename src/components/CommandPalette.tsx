@@ -113,7 +113,8 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="top-[20%] max-w-xl translate-y-0 gap-0 p-0"
+        showCloseButton={false}
+        className="top-[15%] max-w-xl translate-y-0 gap-0 overflow-hidden p-0"
         onKeyDown={handleKeyDown}
       >
         <DialogTitle className="sr-only">Command palette</DialogTitle>

@@ -1,4 +1,3 @@
-import { Plus, Server, Terminal as TerminalIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { withToast } from "@/lib/feedback";
@@ -18,6 +17,7 @@ import { Sidebar } from "./Sidebar";
 import { SidebarResizer } from "./SidebarResizer";
 import { TabsBar } from "./TabsBar";
 import { TransferPanel } from "./TransferPanel";
+import { Workspace } from "./Workspace";
 
 import type { Host } from "@/lib/bindings/Host";
 
@@ -100,7 +100,12 @@ export function MainLayout() {
             {activeTab ? (
               <SessionPane tab={activeTab} />
             ) : (
-              <EmptyState onOpenPalette={() => setPaletteOpen(true)} />
+              <Workspace
+                onOpenPalette={() => setPaletteOpen(true)}
+                onOpenSession={handleOpenSession}
+                onNewHost={() => setNewHostOpen(true)}
+                onImport={() => setImportOpen(true)}
+              />
             )}
           </section>
           <TransferPanel />
@@ -119,57 +124,6 @@ export function MainLayout() {
       />
       <HostFormDialog open={newHostOpen} onOpenChange={setNewHostOpen} host={null} />
       <ImportSshConfigDialog open={importOpen} onOpenChange={setImportOpen} />
-    </div>
-  );
-}
-
-function EmptyState({ onOpenPalette }: { onOpenPalette: () => void }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
-      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-(--color-panel) text-(--color-accent)">
-        <TerminalIcon className="h-7 w-7" />
-      </div>
-      <div className="max-w-md">
-        <p className="text-base font-semibold text-(--color-text)">Aucune session active</p>
-        <p className="mt-1 text-sm text-(--color-muted)">
-          Ouvrez la palette pour démarrer une session, ou cliquez sur un serveur dans la barre
-          latérale.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onOpenPalette}
-        className="inline-flex items-center gap-2 rounded-lg border border-(--color-border-strong) bg-(--color-panel) px-4 py-2 text-sm font-medium text-(--color-text) shadow-sm transition-colors hover:bg-(--color-panel-hover)"
-      >
-        <Plus className="h-4 w-4" />
-        Nouvelle session
-        <span className="flex items-center gap-1 text-[10px] text-(--color-muted)">
-          <kbd className="rounded border border-(--color-border) bg-(--color-bg) px-1 font-mono">
-            Ctrl
-          </kbd>
-          <kbd className="rounded border border-(--color-border) bg-(--color-bg) px-1 font-mono">
-            K
-          </kbd>
-        </span>
-      </button>
-      <FeaturedShortcuts />
-    </div>
-  );
-}
-
-function FeaturedShortcuts() {
-  return (
-    <div className="mt-4 grid w-full max-w-md grid-cols-2 gap-2 text-left text-xs">
-      <div className="flex items-center gap-2 rounded-md border border-(--color-border) bg-(--color-bg-soft) px-3 py-2">
-        <Server className="h-3.5 w-3.5 text-(--color-accent)" />
-        <span className="flex-1 text-(--color-muted)">Cliquez sur un serveur</span>
-        <span className="text-(--color-text-soft)">→ SSH</span>
-      </div>
-      <div className="flex items-center gap-2 rounded-md border border-(--color-border) bg-(--color-bg-soft) px-3 py-2">
-        <Server className="h-3.5 w-3.5 text-(--color-accent-soft)" />
-        <span className="flex-1 text-(--color-muted)">Clic droit</span>
-        <span className="text-(--color-text-soft)">→ SFTP</span>
-      </div>
     </div>
   );
 }

@@ -7,19 +7,19 @@ import { useSettingsStore } from "./stores/useSettingsStore";
 import "./App.css";
 
 function App() {
-  const theme = useSettingsStore((s) => s.terminalTheme);
+  const appTheme = useSettingsStore((s) => s.appTheme);
 
   useEffect(() => {
-    applyAppTheme(theme);
-  }, [theme]);
+    applyAppTheme(appTheme);
+  }, [appTheme]);
 
   // Drive the toaster theme from the active app palette so toasts always
   // match the surrounding UI without us having to restyle each variant.
   const toastTheme = useMemo<"dark" | "light">(() => {
     const palette =
-      TERMINAL_THEMES[(theme as ThemeId) ?? DEFAULT_THEME] ?? TERMINAL_THEMES[DEFAULT_THEME];
+      TERMINAL_THEMES[(appTheme as ThemeId) ?? DEFAULT_THEME] ?? TERMINAL_THEMES[DEFAULT_THEME];
     return palette.appearance;
-  }, [theme]);
+  }, [appTheme]);
 
   return (
     <>

@@ -3,6 +3,8 @@ import {
   ChevronRight,
   ClipboardPaste,
   Copy,
+  Eye,
+  EyeOff,
   File as FileIcon,
   FilePlus,
   Folder,
@@ -29,6 +31,7 @@ import {
   splitPath,
 } from "@/lib/fs";
 import { cn } from "@/lib/utils";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useTransfersStore } from "@/stores/useTransfersStore";
 
 import { FilePropertiesDialog } from "./FilePropertiesDialog";
@@ -158,7 +161,7 @@ export function FilePane({
   // ---- Selection ----
   const handleRowClick = (e: React.MouseEvent, name: string) => {
     if (e.shiftKey && lastClicked) {
-      const names = entries.map((x) => x.name);
+      const names = visibleEntries.map((x) => x.name);
       const a = names.indexOf(lastClicked);
       const b = names.indexOf(name);
       if (a >= 0 && b >= 0) {
@@ -189,9 +192,16 @@ export function FilePane({
     }
   };
 
+  const showHidden = useSettingsStore((s) => s.showHiddenFiles);
+  const setSetting = useSettingsStore((s) => s.set);
+  const visibleEntries = useMemo(
+    () => (showHidden ? entries : entries.filter((e) => !e.name.startsWith("."))),
+    [entries, showHidden],
+  );
+
   const selectedEntries = useMemo(
-    () => entries.filter((e) => selected.has(e.name)),
-    [entries, selected],
+    () => visibleEntries.filter((e) => selected.has(e.name)),
+    [visibleEntries, selected],
   );
 
   // ---- Drag & drop ----
@@ -301,6 +311,12 @@ export function FilePane({
             <FilePlus className="h-3.5 w-3.5" />
           </IconBtn>
           <div className="mx-1 h-4 w-px bg-(--color-border)" />
+          <IconBtn
+            label={showHidden ? "Masquer les fichiers cachés" : "Afficher les fichiers cachés"}
+            onClick={() => setSetting("showHiddenFiles", !showHidden)}
+          >
+            {showHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          </IconBtn>
           <IconBtn label="Home" onClick={() => adapter.initialPath().then(navigateTo)}>
             <Home className="h-3.5 w-3.5" />
           </IconBtn>
@@ -322,16 +338,20 @@ export function FilePane({
                 {error}
               </div>
             )}
-            {loading && entries.length === 0 && (
+            {loading && visibleEntries.length === 0 && (
               <div className="grid place-items-center py-8 text-(--color-muted)">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
             )}
-            {!loading && entries.length === 0 && !error && (
-              <div className="px-3 py-2 text-xs italic text-(--color-muted-soft)">Dossier vide</div>
+            {!loading && visibleEntries.length === 0 && !error && (
+              <div className="px-3 py-2 text-xs italic text-(--color-muted-soft)">
+                {entries.length === 0
+                  ? "Dossier vide"
+                  : "Aucun fichier visible (uniquement des fichiers cachés)"}
+              </div>
             )}
 
-            {entries.length > 0 && (
+            {visibleEntries.length > 0 && (
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-(--color-bg-soft) text-(--color-muted)">
                   <tr className="border-b border-(--color-border)">
@@ -356,7 +376,7 @@ export function FilePane({
                       <td className="hidden px-2 py-1 md:table-cell">—</td>
                     </tr>
                   )}
-                  {entries.map((entry) => {
+                  {visibleEntries.map((entry) => {
                     const isSelected = selected.has(entry.name);
                     const isClipped = isClipboardEntry(clipboard, adapter.kind, path, entry.name);
                     return (
@@ -492,8 +512,8 @@ export function FilePane({
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
-            onSelect={() => setSelected(new Set(entries.map((e) => e.name)))}
-            disabled={entries.length === 0}
+            onSelect={() => setSelected(new Set(visibleEntries.map((e) => e.name)))}
+            disabled={visibleEntries.length === 0}
           >
             <Check className="h-3.5 w-3.5" />
             Tout sélectionner

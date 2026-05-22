@@ -1,10 +1,10 @@
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useEffect, useRef } from "react";
 
 import { onSessionClosed, onTerminalData, sessionsApi } from "@/lib/sessions";
@@ -23,12 +23,17 @@ type Props = {
  * Lifecycle:
  * - On mount: build the Terminal, attach addons, subscribe to data + close
  *   events, register input/resize handlers.
+ * - On theme change: update the existing terminal's options in-place so the
+ *   buffer (and its scrollback) survives. *Do not* tear the terminal down for
+ *   a theme swap — that would clear the user's shell history.
  * - On unmount: dispose the terminal and unlisten.
  */
 export function TerminalView({ sessionId, onClosed }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const termRef = useRef<Terminal | null>(null);
   const themeId = useSettingsStore((s) => s.terminalTheme);
 
+  // Mount: create terminal once per session id. Theme is *not* a dependency.
   useEffect(() => {
     if (!hostRef.current) return;
 
@@ -37,15 +42,14 @@ export function TerminalView({ sessionId, onClosed }: Props) {
       fontSize: 13,
       cursorBlink: true,
       allowTransparency: false,
-      theme: getTheme(themeId),
+      theme: getTheme(useSettingsStore.getState().terminalTheme),
     });
+    termRef.current = term;
 
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.loadAddon(new SearchAddon());
     term.loadAddon(new WebLinksAddon());
-
-    // WebGL is best-effort; fall back silently if the host disallows it.
     try {
       term.loadAddon(new WebglAddon());
     } catch (e) {
@@ -87,8 +91,16 @@ export function TerminalView({ sessionId, onClosed }: Props) {
       writeSub.dispose();
       for (const un of unlisteners) un();
       term.dispose();
+      termRef.current = null;
     };
-  }, [sessionId, onClosed, themeId]);
+  }, [sessionId, onClosed]);
 
-  return <div ref={hostRef} className="h-full w-full bg-[#15171c]" />;
+  // Apply theme changes in place — preserves the scrollback buffer.
+  useEffect(() => {
+    if (termRef.current) {
+      termRef.current.options.theme = getTheme(themeId);
+    }
+  }, [themeId]);
+
+  return <div ref={hostRef} className="h-full w-full" />;
 }
