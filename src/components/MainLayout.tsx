@@ -14,7 +14,13 @@ export function MainLayout() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <Sidebar width={sidebarWidth} />
+        <Sidebar
+          width={sidebarWidth}
+          onOpenSession={(host) => {
+            // Branché en P1-T15 (système d'onglets). Pour l'instant, log de debug.
+            console.info("open session for", host.label, host.id);
+          }}
+        />
         <SidebarResizer onResize={setSidebarWidth} />
 
         <main className="flex min-w-0 flex-1 flex-col">
