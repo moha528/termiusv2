@@ -8,7 +8,7 @@ import type { SessionTab } from "@/stores/useSessionsStore";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
 import { SftpView } from "./SftpView";
-import { TerminalView } from "./TerminalView";
+import { SplitLayout } from "./SplitLayout";
 
 type Props = {
   tab: SessionTab;
@@ -34,19 +34,18 @@ export function SessionPane({ tab }: Props) {
     [markClosed, tab.id],
   );
 
-  if (tab.status.kind === "open") {
-    if (tab.type === "sftp") {
+  // SFTP tab — keep the simple single-pane flow.
+  if (tab.type === "sftp") {
+    if (tab.status.kind === "open") {
       return <SftpView key={tab.status.sessionId} sessionId={tab.status.sessionId} />;
     }
-    return (
-      <TerminalView
-        key={tab.status.sessionId}
-        sessionId={tab.status.sessionId}
-        onClosed={onClosed}
-      />
-    );
+    return <Disconnected tab={tab} onReconnect={(pw) => reconnect(tab.id, pw)} />;
   }
 
+  // SSH tab — either single pane (status) or recursive split layout.
+  if (tab.layout || tab.status.kind === "open") {
+    return <SplitLayout tab={tab} onClosed={onClosed} />;
+  }
   return <Disconnected tab={tab} onReconnect={(pw) => reconnect(tab.id, pw)} />;
 }
 
