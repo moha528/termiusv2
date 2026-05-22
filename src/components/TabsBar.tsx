@@ -1,6 +1,7 @@
-import { Terminal as TerminalIcon, X } from "lucide-react";
+import { FolderTree, Terminal as TerminalIcon, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import type { SessionTabType } from "@/stores/useSessionsStore";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
 export function TabsBar() {
@@ -42,7 +43,7 @@ export function TabsBar() {
           >
             {active && <span className="absolute inset-x-0 top-0 h-0.5 bg-(--color-accent)" />}
             <StatusDot kind={tab.status.kind} />
-            <TerminalIcon className="h-3 w-3 shrink-0 text-(--color-muted-soft)" />
+            <TabIcon type={tab.type} />
             <span className="flex-1 truncate text-left">{tab.title}</span>
             <button
               type="button"
@@ -60,6 +61,11 @@ export function TabsBar() {
       })}
     </div>
   );
+}
+
+function TabIcon({ type }: { type: SessionTabType }) {
+  const cls = "h-3 w-3 shrink-0 text-(--color-muted-soft)";
+  return type === "sftp" ? <FolderTree className={cls} /> : <TerminalIcon className={cls} />;
 }
 
 function StatusDot({ kind }: { kind: "open" | "closed" }) {

@@ -7,6 +7,7 @@ import { keyvaultApi } from "@/lib/keyvault";
 import type { SessionTab } from "@/stores/useSessionsStore";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
+import { SftpView } from "./SftpView";
 import { TerminalView } from "./TerminalView";
 
 type Props = {
@@ -34,6 +35,9 @@ export function SessionPane({ tab }: Props) {
   );
 
   if (tab.status.kind === "open") {
+    if (tab.type === "sftp") {
+      return <SftpView key={tab.status.sessionId} sessionId={tab.status.sessionId} />;
+    }
     return (
       <TerminalView
         key={tab.status.sessionId}

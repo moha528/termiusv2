@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
 import { keyvaultApi } from "@/lib/keyvault";
+import type { SessionTabType } from "@/stores/useSessionsStore";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
 import { Button } from "./ui/Button";
@@ -10,10 +11,14 @@ import { Checkbox } from "./ui/Checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/Dialog";
 import { Input } from "./ui/Input";
 
+type ConnectTarget = { host: Host; type: SessionTabType };
+
 type Props = {
-  host: Host | null;
+  target: ConnectTarget | null;
   onOpenChange: (open: boolean) => void;
 };
+
+export type { ConnectTarget };
 
 /**
  * Prompts for the SSH password and opens a new tab on submit.
@@ -22,7 +27,7 @@ type Props = {
  * keychain after a successful authentication. On next connect the host can
  * skip this dialog entirely (see `useTryConnect` in `Sidebar.tsx`).
  */
-export function ConnectDialog({ host, onOpenChange }: Props) {
+export function ConnectDialog({ target, onOpenChange }: Props) {
   const openTab = useSessionsStore((s) => s.openTab);
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
@@ -30,13 +35,14 @@ export function ConnectDialog({ host, onOpenChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [savedKnown, setSavedKnown] = useState(false);
 
+  const host = target?.host ?? null;
+  const tabType = target?.type ?? "ssh";
+
   useEffect(() => {
     if (!host) return;
     setPassword("");
     setError(null);
     setSubmitting(false);
-    // Default to "remember" unless a saved password already exists (the user
-    // has clearly already opted in for this host).
     keyvaultApi.has(host.id).then((has) => {
       setSavedKnown(has);
       setRemember(true);
@@ -44,7 +50,7 @@ export function ConnectDialog({ host, onOpenChange }: Props) {
   }, [host]);
 
   return (
-    <Dialog open={Boolean(host)} onOpenChange={onOpenChange}>
+    <Dialog open={Boolean(target)} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -52,7 +58,12 @@ export function ConnectDialog({ host, onOpenChange }: Props) {
               <Server className="h-4 w-4" />
             </div>
             <div className="flex flex-col">
-              <DialogTitle>{host?.label ?? "Connexion SSH"}</DialogTitle>
+              <DialogTitle>
+                {host?.label ?? "Connexion SSH"}
+                {tabType === "sftp" && (
+                  <span className="ml-2 text-xs font-normal text-(--color-muted)">SFTP</span>
+                )}
+              </DialogTitle>
               {host && (
                 <span className="font-mono text-xs text-(--color-muted)">
                   {host.username}@{host.hostname}
@@ -71,7 +82,7 @@ export function ConnectDialog({ host, onOpenChange }: Props) {
             setSubmitting(true);
             setError(null);
             try {
-              await openTab(host, password);
+              await openTab(host, password, tabType);
               if (remember) {
                 await keyvaultApi.save(host.id, password);
               } else if (savedKnown) {

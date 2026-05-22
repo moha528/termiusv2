@@ -3,10 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { keyvaultApi } from "@/lib/keyvault";
 import { useSessionsStore } from "@/stores/useSessionsStore";
+import type { SessionTabType } from "@/stores/useSessionsStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { SettingsView } from "@/views/SettingsView";
 
-import { ConnectDialog } from "./ConnectDialog";
+import { ConnectDialog, type ConnectTarget } from "./ConnectDialog";
 import { Header } from "./Header";
 import { SessionPane } from "./SessionPane";
 import { Sidebar } from "./Sidebar";
@@ -23,7 +24,7 @@ export function MainLayout() {
   const activeTabId = useSessionsStore((s) => s.activeTabId);
   const openTab = useSessionsStore((s) => s.openTab);
 
-  const [connectFor, setConnectFor] = useState<Host | null>(null);
+  const [connectFor, setConnectFor] = useState<ConnectTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -35,26 +36,22 @@ export function MainLayout() {
   }, [activeTabId, setSetting]);
 
   /**
-   * Try to open a session with the password cached in the OS keychain. If
-   * there is none, or the cached one fails, fall through to the dialog.
-   *
-   * This is what makes the "connect once, never type again" UX work: once a
-   * user has ticked "Remember", subsequent double-clicks open a tab directly.
+   * Open a session of `type` against `host`. Tries the cached keychain
+   * password first, falls back to the prompt dialog otherwise.
    */
   const handleOpenSession = useCallback(
-    async (host: Host) => {
+    async (host: Host, type: SessionTabType = "ssh") => {
       const saved = await keyvaultApi.get(host.id);
       if (!saved) {
-        setConnectFor(host);
+        setConnectFor({ host, type });
         return;
       }
       try {
-        await openTab(host, saved);
+        await openTab(host, saved, type);
       } catch (e) {
         console.warn("auto-connect failed, prompting:", e);
-        // Drop the stale password so the user isn't stuck in a loop.
         await keyvaultApi.delete(host.id);
-        setConnectFor(host);
+        setConnectFor({ host, type });
       }
     },
     [openTab],
@@ -78,7 +75,7 @@ export function MainLayout() {
         </main>
       </div>
 
-      <ConnectDialog host={connectFor} onOpenChange={(o) => !o && setConnectFor(null)} />
+      <ConnectDialog target={connectFor} onOpenChange={(o) => !o && setConnectFor(null)} />
       <SettingsView open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );

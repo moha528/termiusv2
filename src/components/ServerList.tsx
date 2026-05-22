@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Host } from "@/lib/bindings/Host";
 import { cn } from "@/lib/utils";
 import { useServersStore } from "@/stores/useServersStore";
+import type { SessionTabType } from "@/stores/useSessionsStore";
 
 import { HostFormDialog } from "./HostFormDialog";
 import {
@@ -23,7 +24,7 @@ import {
   ContextMenuTrigger,
 } from "./ui/ContextMenu";
 
-type OnOpenSession = (host: Host) => void;
+type OnOpenSession = (host: Host, type?: SessionTabType) => void;
 
 type Props = {
   onOpenSession?: OnOpenSession;
@@ -130,12 +131,11 @@ export function ServerList({ onOpenSession, query = "" }: Props) {
               </li>
             </ContextMenuTrigger>
             <ContextMenuContent>
-              <ContextMenuItem
-                onSelect={() => {
-                  onOpenSession?.(host);
-                }}
-              >
+              <ContextMenuItem onSelect={() => onOpenSession?.(host, "ssh")}>
                 Open SSH session
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => onOpenSession?.(host, "sftp")}>
+                Open SFTP
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem

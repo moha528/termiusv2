@@ -6,7 +6,7 @@ import { sessionsApi } from "@/lib/sessions";
 /**
  * State of an individual session tab.
  *
- * - `open`: PTY running, terminal rendered.
+ * - `open`: PTY (for ssh tabs) or SFTP subsystem is running.
  * - `closed`: peer-initiated or local close; the tab survives so the user can reconnect.
  *
  * Note: connecting/error are NOT tab states — they live in the ConnectDialog only.
@@ -17,13 +17,15 @@ export type SessionStatus =
   | { kind: "open"; sessionId: string }
   | { kind: "closed"; sessionId: string | null; reason: string };
 
+export type SessionTabType = "ssh" | "sftp";
+
 export type SessionTab = {
   /** Stable tab id (separate from the backend sessionId so reconnects keep the tab). */
   id: string;
   host: Host;
-  /** Customizable title; defaults to host.label. */
+  /** Customizable title; defaults to host.label (+ suffix for sftp). */
   title: string;
-  type: "ssh";
+  type: SessionTabType;
   status: SessionStatus;
 };
 
@@ -32,7 +34,7 @@ type SessionsState = {
   activeTabId: string | null;
 
   /** Open a fresh tab after a successful SSH connection. Throws on auth failure. */
-  openTab: (host: Host, password: string) => Promise<string>;
+  openTab: (host: Host, password: string, type?: SessionTabType) => Promise<string>;
   /** Reconnect an existing closed tab (keeps the same tab id). Throws on failure. */
   reconnect: (tabId: string, password: string) => Promise<void>;
   closeTab: (tabId: string) => Promise<void>;
@@ -46,19 +48,26 @@ function tabId(): string {
   return `tab-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function titleFor(host: Host, type: SessionTabType): string {
+  return type === "sftp" ? `${host.label} · SFTP` : host.label;
+}
+
 export const useSessionsStore = create<SessionsState>((set, get) => ({
   tabs: [],
   activeTabId: null,
 
-  async openTab(host, password) {
+  async openTab(host, password, type = "ssh") {
     // Connect FIRST — never create a tab for a session that hasn't authenticated.
+    // Both SSH terminal and SFTP need an authenticated SSH session, so we use
+    // the same backend command. The SFTP subsystem itself is opened lazily by
+    // the first `sftp_*` command (see `sftp_list_dir`).
     const sessionId = await sessionsApi.open(host.id, password);
     const id = tabId();
     const tab: SessionTab = {
       id,
       host,
-      title: host.label,
-      type: "ssh",
+      title: titleFor(host, type),
+      type,
       status: { kind: "open", sessionId },
     };
     set({ tabs: [...get().tabs, tab], activeTabId: id });

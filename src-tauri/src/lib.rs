@@ -72,6 +72,11 @@ pub fn run() {
             commands::sftp::sftp_rename,
             commands::sftp::sftp_upload,
             commands::sftp::sftp_download,
+            commands::fs_local::local_home_dir,
+            commands::fs_local::local_list_dir,
+            commands::fs_local::local_mkdir,
+            commands::fs_local::local_remove,
+            commands::fs_local::local_rename,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

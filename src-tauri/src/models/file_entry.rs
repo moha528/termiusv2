@@ -13,6 +13,9 @@ pub struct FileEntry {
     /// True when the entry is a directory (after symlink resolution by SFTP).
     pub is_dir: bool,
     pub is_symlink: bool,
+    /// Override to `number` because Tauri serialises u64 as JSON numbers and
+    /// we never expect SSH file sizes near 2^53.
+    #[ts(type = "number | null")]
     pub size: Option<u64>,
     /// Modification time as RFC 3339 UTC, or `None` when not provided.
     pub mtime: Option<String>,

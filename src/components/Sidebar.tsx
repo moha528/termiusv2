@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
 import { useServersStore } from "@/stores/useServersStore";
+import type { SessionTabType } from "@/stores/useSessionsStore";
 
 import { HostFormDialog } from "./HostFormDialog";
 import { ImportSshConfigDialog } from "./ImportSshConfigDialog";
@@ -11,7 +12,7 @@ import { Input } from "./ui/Input";
 
 type SidebarProps = {
   width: number;
-  onOpenSession?: (host: Host) => void;
+  onOpenSession?: (host: Host, type?: SessionTabType) => void;
 };
 
 export function Sidebar({ width, onOpenSession }: SidebarProps) {
