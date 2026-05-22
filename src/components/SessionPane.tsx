@@ -1,8 +1,9 @@
-import { Plug } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Plug, RotateCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { keyvaultApi } from "@/lib/keyvault";
 import type { SessionTab } from "@/stores/useSessionsStore";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
@@ -18,7 +19,8 @@ type Props = {
  * Tabs only exist after a successful authentication, so we only render two
  * states here:
  * - `open` → live xterm.js terminal
- * - `closed` → disconnected screen with Reconnect form
+ * - `closed` → disconnected screen; the Reconnect form uses the cached
+ *   keychain password first and only prompts if it's missing or stale.
  */
 export function SessionPane({ tab }: Props) {
   const markClosed = useSessionsStore((s) => s.markClosed);
@@ -52,51 +54,89 @@ function Disconnected({
   onReconnect: (password: string) => Promise<void>;
 }) {
   const [password, setPassword] = useState("");
+  const [hasSaved, setHasSaved] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Check on mount whether we already have a saved password to drive the UX.
+  useEffect(() => {
+    keyvaultApi.has(tab.host.id).then(setHasSaved);
+  }, [tab.host.id]);
+
   const reason = tab.status.kind === "closed" ? tab.status.reason : "";
 
+  const submit = useCallback(
+    async (pw: string) => {
+      setSubmitting(true);
+      setError(null);
+      try {
+        await onReconnect(pw);
+        setPassword("");
+      } catch (err) {
+        setError(String(err));
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [onReconnect],
+  );
+
+  const useSaved = useCallback(async () => {
+    const saved = await keyvaultApi.get(tab.host.id);
+    if (!saved) {
+      setHasSaved(false);
+      return;
+    }
+    await submit(saved);
+  }, [tab.host.id, submit]);
+
   return (
-    <div className="flex h-full w-full items-center justify-center bg-zinc-950">
-      <div className="flex w-80 flex-col items-center gap-5 rounded-xl border border-zinc-800 bg-zinc-900/60 p-8 shadow-xl">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 text-zinc-400">
+    <div className="flex h-full w-full items-center justify-center bg-(--color-bg)">
+      <div className="flex w-80 flex-col items-center gap-5 rounded-xl border border-(--color-border-strong) bg-(--color-panel) p-8 shadow-2xl shadow-black/30">
+        <div className="grid h-12 w-12 place-items-center rounded-full bg-(--color-elevated) text-(--color-muted)">
           <Plug className="h-5 w-5" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-medium text-zinc-100">Session déconnectée</p>
-          <p className="mt-1 text-xs text-zinc-500">
-            {tab.host.username}@{tab.host.hostname} — {reason}
+          <p className="text-sm font-medium text-(--color-text)">Session déconnectée</p>
+          <p className="mt-1 font-mono text-[11px] text-(--color-muted)">
+            {tab.host.username}@{tab.host.hostname}
           </p>
+          {reason && <p className="mt-1 text-[11px] text-(--color-muted-soft)">{reason}</p>}
         </div>
-        <form
-          className="flex w-full flex-col gap-2"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setSubmitting(true);
-            setError(null);
-            try {
-              await onReconnect(password);
-              setPassword("");
-            } catch (err) {
-              setError(String(err));
-            } finally {
-              setSubmitting(false);
-            }
-          }}
-        >
-          <Input
-            type="password"
-            placeholder="Mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.currentTarget.value)}
-            autoFocus
-          />
-          {error ? <p className="text-xs text-red-400">{error}</p> : null}
-          <Button type="submit" disabled={submitting || !password}>
+
+        {hasSaved && (
+          <Button onClick={useSaved} disabled={submitting} className="w-full">
+            <RotateCw className="h-3.5 w-3.5" />
             {submitting ? "Connexion…" : "Reconnecter"}
           </Button>
-        </form>
+        )}
+
+        {!hasSaved && (
+          <form
+            className="flex w-full flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit(password);
+            }}
+          >
+            <Input
+              type="password"
+              placeholder="Mot de passe"
+              value={password}
+              onChange={(e) => setPassword(e.currentTarget.value)}
+              autoFocus
+            />
+            <Button type="submit" disabled={submitting || !password}>
+              {submitting ? "Connexion…" : "Reconnecter"}
+            </Button>
+          </form>
+        )}
+
+        {error && (
+          <div className="w-full rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-xs text-red-400">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );

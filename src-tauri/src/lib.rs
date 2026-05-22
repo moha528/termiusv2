@@ -5,6 +5,7 @@
 
 pub mod commands;
 pub mod error;
+pub mod keyvault;
 pub mod models;
 pub mod ssh;
 pub mod store;
@@ -47,6 +48,10 @@ pub fn run() {
             commands::sessions::close_session,
             commands::settings::get_all_settings,
             commands::settings::set_setting,
+            commands::keyvault::save_host_password,
+            commands::keyvault::get_host_password,
+            commands::keyvault::delete_host_password,
+            commands::keyvault::has_host_password,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2,6 +2,7 @@
 
 use tauri::State;
 
+use crate::keyvault;
 use crate::models::{Host, HostInput};
 use crate::store::{hosts as dao, DbPool};
 use crate::AppError;
@@ -27,5 +28,11 @@ pub async fn update_host(
 
 #[tauri::command]
 pub async fn delete_host(pool: State<'_, DbPool>, id: String) -> Result<bool, AppError> {
-    Ok(dao::delete(pool.inner(), &id).await?)
+    let removed = dao::delete(pool.inner(), &id).await?;
+    if removed {
+        // Best-effort: drop the keychain entry too so we don't leak secrets
+        // pointing to a host that no longer exists.
+        let _ = keyvault::delete_secret(&id);
+    }
+    Ok(removed)
 }

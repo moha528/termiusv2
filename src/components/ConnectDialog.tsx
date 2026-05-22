@@ -2,9 +2,11 @@ import { Server } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
+import { keyvaultApi } from "@/lib/keyvault";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
 import { Button } from "./ui/Button";
+import { Checkbox } from "./ui/Checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "./ui/Dialog";
 import { Input } from "./ui/Input";
 
@@ -16,21 +18,29 @@ type Props = {
 /**
  * Prompts for the SSH password and opens a new tab on submit.
  *
- * Password storage in the OS keychain ships in P3-T06; until then we keep it
- * in memory only for the duration of the connect call.
+ * When `Remember password` is checked, the password is persisted in the OS
+ * keychain after a successful authentication. On next connect the host can
+ * skip this dialog entirely (see `useTryConnect` in `Sidebar.tsx`).
  */
 export function ConnectDialog({ host, onOpenChange }: Props) {
   const openTab = useSessionsStore((s) => s.openTab);
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedKnown, setSavedKnown] = useState(false);
 
   useEffect(() => {
-    if (host) {
-      setPassword("");
-      setError(null);
-      setSubmitting(false);
-    }
+    if (!host) return;
+    setPassword("");
+    setError(null);
+    setSubmitting(false);
+    // Default to "remember" unless a saved password already exists (the user
+    // has clearly already opted in for this host).
+    keyvaultApi.has(host.id).then((has) => {
+      setSavedKnown(has);
+      setRemember(true);
+    });
   }, [host]);
 
   return (
@@ -62,6 +72,11 @@ export function ConnectDialog({ host, onOpenChange }: Props) {
             setError(null);
             try {
               await openTab(host, password);
+              if (remember) {
+                await keyvaultApi.save(host.id, password);
+              } else if (savedKnown) {
+                await keyvaultApi.delete(host.id);
+              }
               onOpenChange(false);
             } catch (err) {
               setError(String(err));
@@ -79,6 +94,20 @@ export function ConnectDialog({ host, onOpenChange }: Props) {
               disabled={submitting}
             />
           </div>
+
+          <Checkbox
+            id="remember-password"
+            checked={remember}
+            onCheckedChange={setRemember}
+            disabled={submitting}
+            label={
+              <span className="flex items-center gap-1.5">
+                Mémoriser le mot de passe
+                <span className="text-[10px] text-(--color-muted-soft)">(keychain de l'OS)</span>
+              </span>
+            }
+          />
+
           {error && (
             <div className="rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-xs text-red-400">
               {error}

@@ -31,6 +31,9 @@ ts-rs = { version = "10", features = ["serde-compat", "uuid-impl", "chrono-impl"
 # fonctionnelle pour notre scope.
 russh = { version = "0.61", default-features = false, features = ["ring"] }
 
+# OS keychain (Windows Credential Manager / macOS Keychain / Linux Secret Service)
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+
 # Utils
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }

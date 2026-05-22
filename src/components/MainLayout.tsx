@@ -1,6 +1,7 @@
 import { Terminal as TerminalIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { keyvaultApi } from "@/lib/keyvault";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { SettingsView } from "@/views/SettingsView";
@@ -20,6 +21,7 @@ export function MainLayout() {
   const hydrate = useSettingsStore((s) => s.hydrate);
   const tabs = useSessionsStore((s) => s.tabs);
   const activeTabId = useSessionsStore((s) => s.activeTabId);
+  const openTab = useSessionsStore((s) => s.openTab);
 
   const [connectFor, setConnectFor] = useState<Host | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -32,6 +34,32 @@ export function MainLayout() {
     setSetting("lastActiveTabId", activeTabId);
   }, [activeTabId, setSetting]);
 
+  /**
+   * Try to open a session with the password cached in the OS keychain. If
+   * there is none, or the cached one fails, fall through to the dialog.
+   *
+   * This is what makes the "connect once, never type again" UX work: once a
+   * user has ticked "Remember", subsequent double-clicks open a tab directly.
+   */
+  const handleOpenSession = useCallback(
+    async (host: Host) => {
+      const saved = await keyvaultApi.get(host.id);
+      if (!saved) {
+        setConnectFor(host);
+        return;
+      }
+      try {
+        await openTab(host, saved);
+      } catch (e) {
+        console.warn("auto-connect failed, prompting:", e);
+        // Drop the stale password so the user isn't stuck in a loop.
+        await keyvaultApi.delete(host.id);
+        setConnectFor(host);
+      }
+    },
+    [openTab],
+  );
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   return (
@@ -39,7 +67,7 @@ export function MainLayout() {
       <Header onOpenSettings={() => setSettingsOpen(true)} />
 
       <div className="flex min-h-0 flex-1">
-        <Sidebar width={sidebarWidth} onOpenSession={setConnectFor} />
+        <Sidebar width={sidebarWidth} onOpenSession={handleOpenSession} />
         <SidebarResizer onResize={(w) => setSetting("sidebarWidth", w)} />
 
         <main className="flex min-w-0 flex-1 flex-col">
