@@ -1,34 +1,43 @@
 import { Settings as SettingsIcon } from "lucide-react";
 
-import { Titlebar } from "./Titlebar";
-
 type Props = {
   onOpenSettings: () => void;
 };
 
+/**
+ * App header rendered just below the native OS title bar.
+ *
+ * We deliberately keep the OS-native chrome (decorations: true) so we
+ * preserve every window-manager behavior the user expects:
+ * - Aero snap (drag to edge), aero shake
+ * - Windows 11 snap layouts (hover the maximize button)
+ * - Double-click to toggle maximize, native min/max/close buttons
+ * - System theme follow + DwmSetWindowAttribute dark-mode title bar
+ *
+ * The cost is a single OS-themed strip at the very top; everything visible
+ * below it is ours and matches the in-app theme.
+ */
 export function Header({ onOpenSettings }: Props) {
   return (
-    <Titlebar>
-      <div className="flex w-full items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <Logo />
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold tracking-tight">Termius v2</span>
-            <span className="text-[10px] uppercase tracking-wider text-(--color-muted)">
-              SSH client
-            </span>
-          </div>
+    <header className="flex h-11 shrink-0 items-center justify-between border-b border-(--color-border) bg-(--color-panel) px-3">
+      <div className="flex items-center gap-2.5">
+        <Logo />
+        <div className="flex flex-col leading-tight">
+          <span className="text-sm font-semibold tracking-tight">Termius v2</span>
+          <span className="text-[10px] uppercase tracking-wider text-(--color-muted)">
+            SSH client
+          </span>
         </div>
-        <button
-          type="button"
-          aria-label="Settings"
-          onClick={onOpenSettings}
-          className="rounded-md p-1.5 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
-        >
-          <SettingsIcon className="h-4 w-4" />
-        </button>
       </div>
-    </Titlebar>
+      <button
+        type="button"
+        aria-label="Settings"
+        onClick={onOpenSettings}
+        className="rounded-md p-1.5 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+      >
+        <SettingsIcon className="h-4 w-4" />
+      </button>
+    </header>
   );
 }
 
