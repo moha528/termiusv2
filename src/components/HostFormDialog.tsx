@@ -21,11 +21,7 @@ import { Input } from "./ui/Input";
 const schema = z.object({
   label: z.string().min(1, "Label requis"),
   hostname: z.string().min(1, "Hostname requis"),
-  port: z
-    .number({ message: "Port requis" })
-    .int()
-    .min(1, "Port >= 1")
-    .max(65535, "Port <= 65535"),
+  port: z.number({ message: "Port requis" }).int().min(1, "Port >= 1").max(65535, "Port <= 65535"),
   username: z.string().min(1, "Username requis"),
   // password n'est pas persisté ici — il ira dans le keychain (P3-T06).
   password: z.string().optional(),

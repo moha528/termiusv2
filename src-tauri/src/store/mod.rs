@@ -3,4 +3,4 @@
 mod db;
 pub mod hosts;
 
-pub use db::{init_pool, DbPool};
+pub use db::{default_db_path, init_pool, DbPool};
