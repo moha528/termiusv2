@@ -42,6 +42,13 @@ type SessionsState = {
   setTitle: (tabId: string, title: string) => void;
   /** Called by TerminalView when the backend emits `session-closed-{id}`. */
   markClosed: (tabId: string, reason: string) => void;
+  /**
+   * Recreate a tab in `closed` state from a previously stored snapshot
+   * (used by the "Restore previous session?" prompt at startup). No
+   * connection attempt is made — the user clicks "Reconnect" in the pane,
+   * which then auto-uses the cached keychain password if available.
+   */
+  restoreClosedTab: (host: Host, type: SessionTabType, title: string) => string;
 };
 
 function tabId(): string {
@@ -109,6 +116,19 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     if (!tab) return;
     const sessionId = tab.status.kind === "open" ? tab.status.sessionId : null;
     patch(set, get, id, { status: { kind: "closed", sessionId, reason } });
+  },
+
+  restoreClosedTab(host, type, title) {
+    const id = tabId();
+    const tab: SessionTab = {
+      id,
+      host,
+      title: title || titleFor(host, type),
+      type,
+      status: { kind: "closed", sessionId: null, reason: "session précédente" },
+    };
+    set({ tabs: [...get().tabs, tab], activeTabId: get().activeTabId ?? id });
+    return id;
   },
 }));
 

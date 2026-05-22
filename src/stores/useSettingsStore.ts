@@ -2,6 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 
 import { DEFAULT_THEME, type ThemeId } from "@/lib/themes";
+import type { SessionTabType } from "@/stores/useSessionsStore";
+
+export type RestorableTab = {
+  hostId: string;
+  type: SessionTabType;
+  title: string;
+};
 
 type Settings = {
   sidebarWidth: number;
@@ -14,6 +21,13 @@ type Settings = {
   windowHeight: number | null;
   /** Show dotfiles in SFTP/local panes. */
   showHiddenFiles: boolean;
+  /** Snapshot of the last open tabs, used to offer a "restore" prompt on next launch. */
+  restorableTabs: RestorableTab[];
+  /**
+   * `null` → ask each time. `true` / `false` → user committed a preference and
+   * we skip the prompt.
+   */
+  autoRestoreSessions: boolean | null;
 };
 
 const DEFAULTS: Settings = {
@@ -24,6 +38,8 @@ const DEFAULTS: Settings = {
   windowWidth: null,
   windowHeight: null,
   showHiddenFiles: false,
+  restorableTabs: [],
+  autoRestoreSessions: null,
 };
 
 type SettingsState = Settings & {
@@ -40,6 +56,8 @@ const KEY_MAP: Record<keyof Settings, string> = {
   windowWidth: "window_width",
   windowHeight: "window_height",
   showHiddenFiles: "show_hidden_files",
+  restorableTabs: "restorable_tabs",
+  autoRestoreSessions: "auto_restore_sessions",
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
