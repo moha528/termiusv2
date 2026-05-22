@@ -6,6 +6,7 @@
 pub mod commands;
 pub mod error;
 pub mod models;
+pub mod ssh;
 pub mod store;
 
 pub use error::AppError;
