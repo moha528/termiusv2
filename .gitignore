@@ -29,3 +29,6 @@ src-tauri/gen/
 
 # OS
 Thumbs.db
+
+# Playwright CLI cache
+.playwright-cli/
