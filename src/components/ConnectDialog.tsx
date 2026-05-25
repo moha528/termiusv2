@@ -77,26 +77,30 @@ export function ConnectDialog({ target, onOpenChange }: Props) {
 
         <form
           className="grid gap-3"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             if (!host) return;
-            setSubmitting(true);
-            setError(null);
-            try {
-              await withToast(openTab(host, password, tabType), {
-                loading: `Connexion à ${host.label}…`,
-                success: tabType === "sftp" ? "SFTP ouvert" : "Connecté",
+            // Optimistic: close the dialog immediately so the user sees the
+            // tab spinner instead of a blocked modal during the SSH handshake.
+            // Errors are still surfaced via withToast + the tab status flip
+            // to `closed` (the Disconnected pane shows the failure reason).
+            const open = openTab(host, password, tabType);
+            withToast(open, {
+              loading: `Connexion à ${host.label}…`,
+              success: tabType === "sftp" ? "SFTP ouvert" : "Connecté",
+            });
+            open
+              .then(async () => {
+                if (remember) {
+                  await keyvaultApi.save(host.id, password);
+                } else if (savedKnown) {
+                  await keyvaultApi.delete(host.id);
+                }
+              })
+              .catch(() => {
+                // toast already handled the message, nothing else to do
               });
-              if (remember) {
-                await keyvaultApi.save(host.id, password);
-              } else if (savedKnown) {
-                await keyvaultApi.delete(host.id);
-              }
-              onOpenChange(false);
-            } catch (err) {
-              setError(String(err));
-              setSubmitting(false);
-            }
+            onOpenChange(false);
           }}
         >
           <div className="grid gap-1.5 text-xs">

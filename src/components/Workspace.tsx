@@ -17,6 +17,7 @@ type Props = {
   onOpenSession: (host: Host, type?: SessionTabType) => void;
   onNewHost: () => void;
   onImport: () => void;
+  onOpenLocal: () => void;
 };
 
 /**
@@ -29,22 +30,38 @@ type Props = {
  *      and there's a small SFTP shortcut on hover.
  *   3. Footer hint about Ctrl+K so users discover the palette.
  */
-export function Workspace({ onOpenPalette, onOpenSession, onNewHost, onImport }: Props) {
+export function Workspace({
+  onOpenPalette,
+  onOpenSession,
+  onNewHost,
+  onImport,
+  onOpenLocal,
+}: Props) {
   const hosts = useServersStore((s) => s.hosts);
 
   return (
     <div className="flex h-full w-full flex-col overflow-y-auto">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight text-(--color-text)">Termius v2</h1>
-          <p className="mt-1 text-sm text-(--color-muted)">
-            {hosts.length === 0
-              ? "Bienvenue. Ajoutez un serveur ou importez votre fichier ~/.ssh/config pour commencer."
-              : "Choisissez un serveur ou ouvrez la palette de commandes pour vous connecter."}
-          </p>
+        <header className="flex items-start gap-3">
+          <img
+            src="/logo-mark.png"
+            alt=""
+            className="mt-0.5 h-10 w-10 shrink-0 select-none"
+            draggable={false}
+          />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-(--color-text)">
+              Lynk Client
+            </h1>
+            <p className="mt-1 text-sm text-(--color-muted)">
+              {hosts.length === 0
+                ? "Bienvenue. Ajoutez un serveur ou importez votre fichier ~/.ssh/config pour commencer."
+                : "Choisissez un serveur ou ouvrez la palette de commandes pour vous connecter."}
+            </p>
+          </div>
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction
             icon={<Command className="h-5 w-5" />}
             title="Palette"
@@ -52,6 +69,12 @@ export function Workspace({ onOpenPalette, onOpenSession, onNewHost, onImport }:
             badge="Ctrl+K"
             onClick={onOpenPalette}
             primary
+          />
+          <QuickAction
+            icon={<TerminalIcon className="h-5 w-5" />}
+            title="Terminal local"
+            description="Ouvrir un shell sur la machine locale (PowerShell, bash, zsh…)."
+            onClick={onOpenLocal}
           />
           <QuickAction
             icon={<Plus className="h-5 w-5" />}

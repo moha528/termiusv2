@@ -1,10 +1,11 @@
-import { SplitSquareHorizontal, SplitSquareVertical, X } from "lucide-react";
-import { useCallback, useRef } from "react";
+import { Loader2, Radio, SplitSquareHorizontal, SplitSquareVertical, X } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
+import { withToast } from "@/lib/feedback";
 import { keyvaultApi } from "@/lib/keyvault";
 import { cn } from "@/lib/utils";
 import type { LayoutNode, SessionTab, SplitDirection, SplitPath } from "@/stores/useSessionsStore";
-import { useSessionsStore } from "@/stores/useSessionsStore";
+import { isPendingSession, useSessionsStore } from "@/stores/useSessionsStore";
 
 import { TerminalView } from "./TerminalView";
 
@@ -19,15 +20,64 @@ type Props = {
  * single-pane fast path.
  */
 export function SplitLayout({ tab, onClosed }: Props) {
+  const kind = tab.type === "local" ? "local" : "ssh";
+  // Both SSH and local panes can be split. SFTP can't (single-pane file view).
+  const canSplit = tab.type === "ssh" || tab.type === "local";
+
+  // Resolve the broadcast group from the store. Only panes inside this set
+  // exchange keystrokes; we filter unknown leaves so closing a peer
+  // automatically removes it from the active broadcast.
+  const broadcastGroup = useSessionsStore((s) => s.broadcastGroups[tab.id] ?? null);
+  const allLeaves = useMemo(
+    () =>
+      tab.layout
+        ? collectLeaves(tab.layout)
+        : tab.status.kind === "open"
+          ? [tab.status.sessionId]
+          : [],
+    [tab.layout, tab.status],
+  );
+  const activeGroup = useMemo(
+    () => (broadcastGroup ? broadcastGroup.filter((id) => allLeaves.includes(id)) : null),
+    [broadcastGroup, allLeaves],
+  );
+
   if (!tab.layout) {
     if (tab.status.kind !== "open") return null;
     return (
-      <PaneShell tabId={tab.id} sessionId={tab.status.sessionId}>
-        <TerminalView sessionId={tab.status.sessionId} onClosed={onClosed} />
+      <PaneShell
+        tabId={tab.id}
+        sessionId={tab.status.sessionId}
+        canSplit={canSplit}
+        canBroadcast={false}
+        broadcasting={false}
+      >
+        <TerminalView
+          sessionId={tab.status.sessionId}
+          kind={kind}
+          hostId={tab.host.id}
+          hostLabel={tab.host.label}
+          onClosed={onClosed}
+        />
       </PaneShell>
     );
   }
-  return <LayoutTreeView tab={tab} node={tab.layout} path={[]} onClosed={onClosed} />;
+  return (
+    <LayoutTreeView
+      tab={tab}
+      node={tab.layout}
+      path={[]}
+      onClosed={onClosed}
+      activeGroup={activeGroup}
+      allLeaves={allLeaves}
+    />
+  );
+}
+
+function collectLeaves(node: LayoutNode): string[] {
+  return node.kind === "leaf"
+    ? [node.sessionId]
+    : [...collectLeaves(node.first), ...collectLeaves(node.second)];
 }
 
 function LayoutTreeView({
@@ -35,20 +85,78 @@ function LayoutTreeView({
   node,
   path,
   onClosed,
+  activeGroup,
+  allLeaves,
 }: {
   tab: SessionTab;
   node: LayoutNode;
   path: SplitPath;
   onClosed: (reason: string) => void;
+  activeGroup: string[] | null;
+  allLeaves: string[];
 }) {
+  const kind = tab.type === "local" ? "local" : "ssh";
+  const canSplit = tab.type === "ssh" || tab.type === "local";
+  const canBroadcast = allLeaves.length >= 2;
   if (node.kind === "leaf") {
+    // A "pending-*" sessionId is a placeholder while the backend session is
+    // still being opened (cf. useSessionsStore.splitPane). We render a local
+    // spinner here so the user sees the new pane appear in the right place
+    // straight away instead of waiting for the IPC.
+    if (isPendingSession(node.sessionId)) {
+      return (
+        <PaneShell
+          tabId={tab.id}
+          sessionId={node.sessionId}
+          canSplit={false}
+          canBroadcast={false}
+          broadcasting={false}
+        >
+          <PaneSpinner label={tab.type === "local" ? "Démarrage du shell…" : "Connexion…"} />
+        </PaneShell>
+      );
+    }
+    const inGroup = activeGroup?.includes(node.sessionId) ?? false;
+    const peers = inGroup && activeGroup ? activeGroup.filter((id) => id !== node.sessionId) : [];
+    const broadcast = inGroup && peers.length > 0 ? { peerSessionIds: peers } : undefined;
     return (
-      <PaneShell tabId={tab.id} sessionId={node.sessionId}>
-        <TerminalView sessionId={node.sessionId} onClosed={onClosed} />
+      <PaneShell
+        tabId={tab.id}
+        sessionId={node.sessionId}
+        canSplit={canSplit}
+        canBroadcast={canBroadcast}
+        broadcasting={inGroup}
+      >
+        <TerminalView
+          sessionId={node.sessionId}
+          kind={kind}
+          hostId={tab.host.id}
+          hostLabel={tab.host.label}
+          onClosed={onClosed}
+          broadcast={broadcast}
+        />
       </PaneShell>
     );
   }
-  return <SplitView tab={tab} node={node} path={path} onClosed={onClosed} />;
+  return (
+    <SplitView
+      tab={tab}
+      node={node}
+      path={path}
+      onClosed={onClosed}
+      activeGroup={activeGroup}
+      allLeaves={allLeaves}
+    />
+  );
+}
+
+function PaneSpinner({ label }: { label: string }) {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-(--color-bg) text-(--color-muted)">
+      <Loader2 className="h-5 w-5 animate-spin text-(--color-accent)" />
+      <p className="text-xs">{label}</p>
+    </div>
+  );
 }
 
 function SplitView({
@@ -56,11 +164,15 @@ function SplitView({
   node,
   path,
   onClosed,
+  activeGroup,
+  allLeaves,
 }: {
   tab: SessionTab;
   node: Extract<LayoutNode, { kind: "split" }>;
   path: SplitPath;
   onClosed: (reason: string) => void;
+  activeGroup: string[] | null;
+  allLeaves: string[];
 }) {
   const setSplitRatio = useSessionsStore((s) => s.setSplitRatio);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -104,7 +216,14 @@ function SplitView({
         style={isHorizontal ? { width: pctFirst } : { height: pctFirst }}
         className="min-w-0 min-h-0"
       >
-        <LayoutTreeView tab={tab} node={node.first} path={[...path, "first"]} onClosed={onClosed} />
+        <LayoutTreeView
+          tab={tab}
+          node={node.first}
+          path={[...path, "first"]}
+          onClosed={onClosed}
+          activeGroup={activeGroup}
+          allLeaves={allLeaves}
+        />
       </div>
       <div
         onMouseDown={onDrag}
@@ -125,6 +244,8 @@ function SplitView({
           node={node.second}
           path={[...path, "second"]}
           onClosed={onClosed}
+          activeGroup={activeGroup}
+          allLeaves={allLeaves}
         />
       </div>
     </div>
@@ -134,40 +255,95 @@ function SplitView({
 function PaneShell({
   tabId,
   sessionId,
+  canSplit,
+  canBroadcast,
+  broadcasting,
   children,
 }: {
   tabId: string;
   sessionId: string;
+  /** Disabled for SFTP tabs or while a pane is in `pending` state. */
+  canSplit: boolean;
+  /** True when the tab has at least 2 leaves, so a broadcast group makes sense. */
+  canBroadcast: boolean;
+  /** True when this pane is currently part of the tab's broadcast group. */
+  broadcasting: boolean;
   children: React.ReactNode;
 }) {
   const splitPane = useSessionsStore((s) => s.splitPane);
   const closePane = useSessionsStore((s) => s.closePane);
+  const setBroadcastGroup = useSessionsStore((s) => s.setBroadcastGroup);
   const tab = useSessionsStore((s) => s.tabs.find((t) => t.id === tabId));
+  const existingGroup = useSessionsStore((s) => s.broadcastGroups[tabId]);
+  // Local guard against rapid clicks creating multiple splits. The optimistic
+  // layout placeholder means the user already sees the new pane right away;
+  // we just block the toolbar buttons until that pane is fully ready.
+  const [busy, setBusy] = useState(false);
 
   const doSplit = useCallback(
     async (direction: SplitDirection) => {
-      if (!tab) return;
-      const pwd = await keyvaultApi.get(tab.host.id);
-      if (!pwd) {
-        // No saved password — surface a tiny inline hint and bail.
-        // (Could pop the ConnectDialog later but a saved password is the common path.)
-        console.warn("split needs a saved password");
-        return;
-      }
+      if (!tab || busy) return;
+      setBusy(true);
       try {
-        await splitPane(tabId, sessionId, direction, pwd);
+        if (tab.type === "local") {
+          await withToast(splitPane(tabId, sessionId, direction), {
+            loading: "Ouverture d'un nouveau pane…",
+            success: "Pane ouvert",
+          });
+          return;
+        }
+        // SSH split: reuse the keychain password silently if available.
+        const pwd = await keyvaultApi.get(tab.host.id);
+        if (!pwd) {
+          console.warn("split needs a saved password");
+          return;
+        }
+        await withToast(splitPane(tabId, sessionId, direction, pwd), {
+          loading: `Connexion d'un nouveau pane à ${tab.host.label}…`,
+          success: "Pane connecté",
+        });
       } catch (e) {
         console.warn("splitPane:", e);
+      } finally {
+        setBusy(false);
       }
     },
-    [splitPane, tab, tabId, sessionId],
+    [splitPane, tab, tabId, sessionId, busy],
   );
+
+  const toggleBroadcast = useCallback(() => {
+    if (!tab) return;
+    const layoutLeaves = tab.layout
+      ? collectLeaves(tab.layout)
+      : tab.status.kind === "open"
+        ? [tab.status.sessionId]
+        : [];
+    const current = existingGroup ?? [];
+    if (current.includes(sessionId)) {
+      // Remove this pane. If the group falls below 2 members, clear it
+      // entirely — a one-pane group has no broadcast effect anyway.
+      const next = current.filter((id) => id !== sessionId);
+      setBroadcastGroup(tabId, next.length >= 2 ? next : []);
+    } else if (current.length === 0) {
+      // Bootstrap: opt every leaf in. This matches the "Sync all" mental
+      // model where toggling broadcast on a split syncs the whole tab
+      // unless the user later unchecks panes.
+      setBroadcastGroup(tabId, layoutLeaves);
+    } else {
+      setBroadcastGroup(tabId, [...current, sessionId]);
+    }
+  }, [tab, existingGroup, sessionId, tabId, setBroadcastGroup]);
 
   return (
     <div className="group relative flex h-full w-full flex-col">
       <PaneToolbar
+        canSplit={canSplit}
+        canBroadcast={canBroadcast}
+        broadcasting={broadcasting}
+        busy={busy}
         onSplitH={() => doSplit("horizontal")}
         onSplitV={() => doSplit("vertical")}
+        onToggleBroadcast={toggleBroadcast}
         onClose={() => closePane(tabId, sessionId)}
       />
       <div className="min-h-0 flex-1">{children}</div>
@@ -176,23 +352,66 @@ function PaneShell({
 }
 
 function PaneToolbar({
+  canSplit,
+  canBroadcast,
+  broadcasting,
+  busy,
   onSplitH,
   onSplitV,
+  onToggleBroadcast,
   onClose,
 }: {
+  canSplit: boolean;
+  canBroadcast: boolean;
+  broadcasting: boolean;
+  busy: boolean;
   onSplitH: () => void;
   onSplitV: () => void;
+  onToggleBroadcast: () => void;
   onClose: () => void;
 }) {
   return (
-    <div className="absolute right-2 top-1 z-10 flex items-center gap-0.5 rounded-md bg-(--color-bg-soft)/80 p-0.5 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100">
-      <ToolbarBtn label="Split horizontal" onClick={onSplitH}>
-        <SplitSquareHorizontal className="h-3.5 w-3.5" />
-      </ToolbarBtn>
-      <ToolbarBtn label="Split vertical" onClick={onSplitV}>
-        <SplitSquareVertical className="h-3.5 w-3.5" />
-      </ToolbarBtn>
-      <ToolbarBtn label="Close pane" onClick={onClose}>
+    <div
+      className={cn(
+        "absolute right-2 top-1 z-10 flex items-center gap-0.5 rounded-md bg-(--color-bg-soft)/80 p-0.5 backdrop-blur transition-opacity",
+        // When a pane is broadcasting we keep the toolbar visible so the
+        // user has an obvious "leave the group" button without having to
+        // hover-hunt.
+        broadcasting ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+      )}
+    >
+      {canSplit && busy && (
+        <span
+          title="Ouverture d'un pane…"
+          className="grid h-6 w-6 place-items-center text-(--color-accent)"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        </span>
+      )}
+      {canSplit && !busy && (
+        <>
+          <ToolbarBtn label="Split horizontal" onClick={onSplitH}>
+            <SplitSquareHorizontal className="h-3.5 w-3.5" />
+          </ToolbarBtn>
+          <ToolbarBtn label="Split vertical" onClick={onSplitV}>
+            <SplitSquareVertical className="h-3.5 w-3.5" />
+          </ToolbarBtn>
+        </>
+      )}
+      {canBroadcast && (
+        <ToolbarBtn
+          label={
+            broadcasting
+              ? "Désactiver la synchro d'input"
+              : "Synchroniser l'input avec les autres panes"
+          }
+          onClick={onToggleBroadcast}
+          active={broadcasting}
+        >
+          <Radio className="h-3.5 w-3.5" />
+        </ToolbarBtn>
+      )}
+      <ToolbarBtn label="Close pane" onClick={onClose} disabled={busy}>
         <X className="h-3.5 w-3.5" />
       </ToolbarBtn>
     </div>
@@ -202,19 +421,30 @@ function PaneToolbar({
 function ToolbarBtn({
   label,
   onClick,
+  disabled,
+  active,
   children,
 }: {
   label: string;
   onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       title={label}
       aria-label={label}
-      className="rounded p-1 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+      aria-pressed={active}
+      className={cn(
+        "rounded p-1 transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed",
+        active
+          ? "bg-(--color-accent-bg)/50 text-(--color-accent)"
+          : "text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text)",
+      )}
     >
       {children}
     </button>

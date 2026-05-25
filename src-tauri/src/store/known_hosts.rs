@@ -10,7 +10,22 @@
 
 use anyhow::{Context, Result};
 
+use crate::models::KnownHost;
+
 use super::DbPool;
+
+/// List every recorded TOFU entry, most recent first.
+pub async fn list(pool: &DbPool) -> Result<Vec<KnownHost>> {
+    let rows = sqlx::query_as::<_, KnownHost>(
+        "SELECT hostname, port, fingerprint, key_type, accepted_at
+         FROM known_hosts
+         ORDER BY accepted_at DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .context("list known_hosts")?;
+    Ok(rows)
+}
 
 /// Outcome of a TOFU check against a single endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]

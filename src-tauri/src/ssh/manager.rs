@@ -22,6 +22,9 @@ use crate::sftp::SftpClient;
 /// subsystem channel for every directory listing would add a round-trip.
 pub struct SessionEntry {
     pub id: Uuid,
+    /// Host the session was opened against — used by command history capture
+    /// (P4-T03) to scope recorded commands.
+    pub host_id: Option<String>,
     pub session: Session,
     pub pty: Option<PtyChannel>,
     pub sftp: Option<SftpClient>,
@@ -31,6 +34,7 @@ impl SessionEntry {
     pub fn new(id: Uuid, session: Session) -> Self {
         Self {
             id,
+            host_id: None,
             session,
             pty: None,
             sftp: None,

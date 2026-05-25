@@ -1,9 +1,11 @@
 import {
   Download,
   FolderTree,
+  History,
   Plus,
   Search,
   Settings as SettingsIcon,
+  Sparkles,
   Terminal as TerminalIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,9 +19,12 @@ import { Dialog, DialogContent, DialogTitle } from "./ui/Dialog";
 
 type Action =
   | { kind: "open-host"; type: SessionTabType; host: Host }
+  | { kind: "open-local" }
   | { kind: "new-host" }
   | { kind: "import-ssh-config" }
-  | { kind: "open-settings" };
+  | { kind: "open-settings" }
+  | { kind: "open-snippets" }
+  | { kind: "open-history" };
 
 type Props = {
   open: boolean;
@@ -28,6 +33,9 @@ type Props = {
   onNewHost: () => void;
   onImport: () => void;
   onOpenSettings: () => void;
+  onOpenLocal: () => void;
+  onOpenSnippets: () => void;
+  onOpenHistory: () => void;
 };
 
 /**
@@ -50,6 +58,9 @@ export function CommandPalette({
   onNewHost,
   onImport,
   onOpenSettings,
+  onOpenLocal,
+  onOpenSnippets,
+  onOpenHistory,
 }: Props) {
   const hosts = useServersStore((s) => s.hosts);
   const [query, setQuery] = useState("");
@@ -84,6 +95,9 @@ export function CommandPalette({
       case "open-host":
         onOpenHost(action.host, action.type);
         break;
+      case "open-local":
+        onOpenLocal();
+        break;
       case "new-host":
         onNewHost();
         break;
@@ -92,6 +106,12 @@ export function CommandPalette({
         break;
       case "open-settings":
         onOpenSettings();
+        break;
+      case "open-snippets":
+        onOpenSnippets();
+        break;
+      case "open-history":
+        onOpenHistory();
         break;
     }
   };
@@ -216,12 +236,18 @@ function ActionIcon({ action }: { action: Action }) {
       ) : (
         <TerminalIcon className={cn(cls, "text-(--color-accent)")} />
       );
+    case "open-local":
+      return <TerminalIcon className={cn(cls, "text-(--color-accent)")} />;
     case "new-host":
       return <Plus className={cn(cls, "text-(--color-muted)")} />;
     case "import-ssh-config":
       return <Download className={cn(cls, "text-(--color-muted)")} />;
     case "open-settings":
       return <SettingsIcon className={cn(cls, "text-(--color-muted)")} />;
+    case "open-snippets":
+      return <Sparkles className={cn(cls, "text-(--color-accent)")} />;
+    case "open-history":
+      return <History className={cn(cls, "text-(--color-muted)")} />;
   }
 }
 
@@ -238,12 +264,18 @@ function actionLabel(action: Action): string {
   switch (action.kind) {
     case "open-host":
       return action.host.label;
+    case "open-local":
+      return "Ouvrir un terminal local";
     case "new-host":
       return "Ajouter un serveur";
     case "import-ssh-config":
       return "Importer ~/.ssh/config";
     case "open-settings":
       return "Ouvrir les réglages";
+    case "open-snippets":
+      return "Snippets";
+    case "open-history":
+      return "Historique des commandes";
   }
 }
 
@@ -255,12 +287,18 @@ function actionDescription(action: Action): string {
       }`;
       return `${action.type === "sftp" ? "SFTP" : "SSH"} · ${endpoint}`;
     }
+    case "open-local":
+      return "Shell sur la machine locale (PowerShell / bash / zsh)";
     case "new-host":
       return "Créer un nouveau host";
     case "import-ssh-config":
       return "Importer des hôtes depuis OpenSSH";
     case "open-settings":
       return "Préférences, thèmes, …";
+    case "open-snippets":
+      return "Commandes réutilisables avec variables";
+    case "open-history":
+      return "Recherche fzf dans l'historique de toutes les sessions";
   }
 }
 
@@ -268,6 +306,8 @@ function actionBadge(action: Action): string {
   switch (action.kind) {
     case "open-host":
       return action.type === "sftp" ? "SFTP" : "SSH";
+    case "open-local":
+      return "LOCAL";
     default:
       return "Action";
   }
@@ -295,6 +335,9 @@ function filterActions(hosts: Host[], query: string): Action[] {
   }
 
   // Quick actions
+  all.push({ kind: "open-local" });
+  all.push({ kind: "open-snippets" });
+  all.push({ kind: "open-history" });
   all.push({ kind: "new-host" });
   all.push({ kind: "import-ssh-config" });
   all.push({ kind: "open-settings" });
@@ -302,10 +345,16 @@ function filterActions(hosts: Host[], query: string): Action[] {
   if (!q) return all;
 
   return all.filter((a) => {
-    const hay =
-      a.kind === "open-host"
-        ? `${a.host.label} ${a.host.hostname} ${a.host.username} ${a.type}`
-        : a.kind;
+    let hay: string = a.kind;
+    if (a.kind === "open-host") {
+      hay = `${a.host.label} ${a.host.hostname} ${a.host.username} ${a.type}`;
+    } else if (a.kind === "open-local") {
+      hay = "open-local terminal shell local";
+    } else if (a.kind === "open-snippets") {
+      hay = "snippets snippet commandes raccourcis productivité";
+    } else if (a.kind === "open-history") {
+      hay = "history historique commandes ctrl r fzf";
+    }
     return hay.toLowerCase().includes(q);
   });
 }

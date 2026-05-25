@@ -115,6 +115,12 @@ pub async fn import_ssh_config(
             port: entry.port.unwrap_or(22) as i32,
             username: entry.user.unwrap_or_else(default_username),
             group_id: None,
+            proxy_jump_host_id: None,
+            identity_id: None,
+            agent_forward: false,
+            log_to_file: false,
+            pre_connect_script: String::new(),
+            post_connect_script: String::new(),
         };
         let host = hosts_dao::create(pool.inner(), input).await?;
         created.push(host);

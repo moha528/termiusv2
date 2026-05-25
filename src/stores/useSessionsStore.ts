@@ -1,19 +1,46 @@
 import { create } from "zustand";
 
 import type { Host } from "@/lib/bindings/Host";
-import { sessionsApi } from "@/lib/sessions";
+import { localTermApi, sessionsApi } from "@/lib/sessions";
 
 /**
  * State of an individual session tab.
  *
- * - `open`: PTY (for ssh tabs) or SFTP subsystem is running.
+ * - `connecting`: the open IPC was issued but hasn't resolved yet. We render
+ *   a spinner so the user knows we're working on it (DNS, TCP, SSH handshake,
+ *   PTY allocation can take several seconds).
+ * - `open`: PTY (for ssh/local tabs) or SFTP subsystem is running.
  * - `closed`: peer-initiated or local close; the tab survives so the user can reconnect.
  */
 export type SessionStatus =
+  | { kind: "connecting" }
   | { kind: "open"; sessionId: string }
   | { kind: "closed"; sessionId: string | null; reason: string };
 
-export type SessionTabType = "ssh" | "sftp";
+export type SessionTabType = "ssh" | "sftp" | "local";
+
+/**
+ * Synthetic Host placeholder used by local terminal tabs. The fields are
+ * filled with values that make the rest of the UI render sensibly without
+ * a special-case branch (no DB round-trip — local tabs are never persisted
+ * to the hosts table).
+ */
+export const LOCAL_HOST: Host = {
+  id: "__local__",
+  label: "Local",
+  hostname: "localhost",
+  port: 0,
+  username: "local",
+  group_id: null,
+  proxy_jump_host_id: null,
+  identity_id: null,
+  agent_forward: false,
+  log_to_file: false,
+  pre_connect_script: "",
+  post_connect_script: "",
+  created_at: "",
+  updated_at: "",
+};
 
 export type SplitDirection = "horizontal" | "vertical";
 
@@ -55,8 +82,28 @@ export type SessionTab = {
 type SessionsState = {
   tabs: SessionTab[];
   activeTabId: string | null;
+  /**
+   * Session id of the pane that last received user focus across the whole app.
+   * Used by features like "send snippet to terminal" that need to target the
+   * pane the user is actually looking at, not just the first leaf of the tab.
+   * `null` when no pane has been focused yet (e.g. fresh app).
+   */
+  focusedSessionId: string | null;
+  setFocusedSession: (sessionId: string | null) => void;
+
+  /**
+   * Per-tab "broadcast input" groups (P4-T04). Each tab id maps to a set of
+   * session ids that share keystrokes. When typing in a pane that belongs
+   * to the group, `TerminalView` mirrors the input to every peer. A tab
+   * without an entry → no broadcast.
+   */
+  broadcastGroups: Record<string, string[]>;
+  /** Replace the broadcast group for a tab; pass empty array to disable. */
+  setBroadcastGroup: (tabId: string, sessionIds: string[]) => void;
 
   openTab: (host: Host, password: string, type?: SessionTabType) => Promise<string>;
+  /** Spawn a fresh local-shell tab. Returns the new tab id. */
+  openLocalTab: (shell?: string) => Promise<string>;
   reconnect: (tabId: string, password: string) => Promise<void>;
   closeTab: (tabId: string) => Promise<void>;
   setActive: (tabId: string) => void;
@@ -66,14 +113,15 @@ type SessionsState = {
 
   /**
    * Split the pane identified by `sessionId` inside `tabId` along
-   * `direction`, opening a fresh SSH session to the same host with `password`.
-   * Throws if auth fails.
+   * `direction`. For SSH tabs a `password` is required (we open a new
+   * SSH session to the same host). For local tabs we just spawn a fresh
+   * shell, so `password` is ignored.
    */
   splitPane: (
     tabId: string,
     sessionId: string,
     direction: SplitDirection,
-    password: string,
+    password?: string,
   ) => Promise<void>;
 
   /** Close the pane identified by `sessionId`; collapses the layout. */
@@ -91,7 +139,9 @@ function tabId(): string {
 }
 
 function titleFor(host: Host, type: SessionTabType): string {
-  return type === "sftp" ? `${host.label} · SFTP` : host.label;
+  if (type === "sftp") return `${host.label} · SFTP`;
+  if (type === "local") return host.label;
+  return host.label;
 }
 
 /** Walk the tree, return all leaf session ids in order. */
@@ -121,6 +171,25 @@ function splitAt(
     first: splitAt(node.first, target, direction, newSessionId),
     second: splitAt(node.second, target, direction, newSessionId),
   };
+}
+
+/** Replace every leaf whose sessionId matches `from` by `to`. */
+function replaceLeafSessionId(node: LayoutNode, from: string, to: string): LayoutNode {
+  if (node.kind === "leaf") {
+    return node.sessionId === from ? { ...node, sessionId: to } : node;
+  }
+  return {
+    ...node,
+    first: replaceLeafSessionId(node.first, from, to),
+    second: replaceLeafSessionId(node.second, from, to),
+  };
+}
+
+/** Prefix marking a leaf whose backend session is still being established. */
+export const PENDING_SESSION_PREFIX = "pending-";
+
+export function isPendingSession(sessionId: string): boolean {
+  return sessionId.startsWith(PENDING_SESSION_PREFIX);
 }
 
 /** Remove the leaf with `target`, returning the simplified tree or null when empty. */
@@ -155,26 +224,92 @@ function setRatioAt(node: LayoutNode, path: SplitPath, ratio: number): LayoutNod
 export const useSessionsStore = create<SessionsState>((set, get) => ({
   tabs: [],
   activeTabId: null,
+  focusedSessionId: null,
+  broadcastGroups: {},
+
+  setFocusedSession(sessionId) {
+    set({ focusedSessionId: sessionId });
+  },
+
+  setBroadcastGroup(tabId, sessionIds) {
+    const next = { ...get().broadcastGroups };
+    if (sessionIds.length === 0) {
+      delete next[tabId];
+    } else {
+      next[tabId] = sessionIds;
+    }
+    set({ broadcastGroups: next });
+  },
 
   async openTab(host, password, type = "ssh") {
-    const sessionId = await sessionsApi.open(host.id, password);
+    // Create the tab synchronously in `connecting` state and switch to it so
+    // the user gets immediate visual feedback — the spinner pane shows what
+    // we're connecting to while the SSH handshake (DNS + TCP + auth + PTY)
+    // happens in the background. The status flips to `open` or `closed`
+    // once the IPC resolves.
     const id = tabId();
     const tab: SessionTab = {
       id,
       host,
       title: titleFor(host, type),
       type,
-      status: { kind: "open", sessionId },
+      status: { kind: "connecting" },
     };
     set({ tabs: [...get().tabs, tab], activeTabId: id });
-    return id;
+
+    try {
+      const sessionId = await sessionsApi.open(host.id, password);
+      patch(set, get, id, { status: { kind: "open", sessionId } });
+      return id;
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      patch(set, get, id, {
+        status: { kind: "closed", sessionId: null, reason },
+      });
+      throw e;
+    }
+  },
+
+  async openLocalTab(shell) {
+    const id = tabId();
+    const existing = get().tabs.filter((t) => t.type === "local").length;
+    const tab: SessionTab = {
+      id,
+      host: LOCAL_HOST,
+      title: existing === 0 ? "Local" : `Local ${existing + 1}`,
+      type: "local",
+      status: { kind: "connecting" },
+    };
+    set({ tabs: [...get().tabs, tab], activeTabId: id });
+
+    try {
+      const sessionId = await localTermApi.open(shell);
+      patch(set, get, id, { status: { kind: "open", sessionId } });
+      return id;
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      patch(set, get, id, {
+        status: { kind: "closed", sessionId: null, reason },
+      });
+      throw e;
+    }
   },
 
   async reconnect(id, password) {
     const tab = get().tabs.find((t) => t.id === id);
     if (!tab) return;
-    const sessionId = await sessionsApi.open(tab.host.id, password);
-    patch(set, get, id, { status: { kind: "open", sessionId }, layout: undefined });
+    patch(set, get, id, { status: { kind: "connecting" }, layout: undefined });
+    try {
+      const sessionId =
+        tab.type === "local"
+          ? await localTermApi.open()
+          : await sessionsApi.open(tab.host.id, password);
+      patch(set, get, id, { status: { kind: "open", sessionId } });
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      patch(set, get, id, { status: { kind: "closed", sessionId: null, reason } });
+      throw e;
+    }
   },
 
   async closeTab(id) {
@@ -187,11 +322,12 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
         : tab.status.kind === "open"
           ? [tab.status.sessionId]
           : [];
+      const close = tab.type === "local" ? localTermApi.close : sessionsApi.close;
       for (const sid of sessionIds) {
         try {
-          await sessionsApi.close(sid);
+          await close(sid);
         } catch (e) {
-          console.warn("close_session:", e);
+          console.warn("close session:", e);
         }
       }
     }
@@ -231,23 +367,55 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
 
   async splitPane(tabId, sessionId, direction, password) {
     const tab = get().tabs.find((t) => t.id === tabId);
-    if (!tab || tab.type !== "ssh") return;
-    const newSessionId = await sessionsApi.open(tab.host.id, password);
-    const currentLayout: LayoutNode = tab.layout ?? {
-      kind: "leaf",
-      sessionId,
-    };
-    const nextLayout = splitAt(currentLayout, sessionId, direction, newSessionId);
-    patch(set, get, tabId, { layout: nextLayout });
+    if (!tab) return;
+    if (tab.type === "sftp") return; // sftp panes can't be split
+
+    // Optimistic layout: insert a placeholder leaf with a pending sessionId
+    // straight away so the user sees the split appear, with a loader in the
+    // new pane. The real backend session id replaces the placeholder when
+    // the IPC resolves; on failure we revert by removing the placeholder.
+    const pendingId = `${PENDING_SESSION_PREFIX}${Math.random().toString(36).slice(2, 10)}`;
+    const currentLayout: LayoutNode = tab.layout ?? { kind: "leaf", sessionId };
+    const optimisticLayout = splitAt(currentLayout, sessionId, direction, pendingId);
+    patch(set, get, tabId, { layout: optimisticLayout });
+
+    try {
+      const newSessionId =
+        tab.type === "local"
+          ? await localTermApi.open()
+          : await (async () => {
+              if (!password) throw new Error("password required for SSH split");
+              return sessionsApi.open(tab.host.id, password);
+            })();
+      const after = get().tabs.find((t) => t.id === tabId);
+      if (!after?.layout) return;
+      patch(set, get, tabId, {
+        layout: replaceLeafSessionId(after.layout, pendingId, newSessionId),
+      });
+    } catch (e) {
+      // Revert: drop the pending leaf, possibly collapsing the split back
+      // to a single pane.
+      const after = get().tabs.find((t) => t.id === tabId);
+      if (after?.layout) {
+        const reverted = removeLeaf(after.layout, pendingId);
+        // If the layout collapses to a single leaf, drop it back to undefined
+        // so the SSH single-pane fast path kicks in.
+        patch(set, get, tabId, {
+          layout: reverted && reverted.kind === "split" ? reverted : undefined,
+        });
+      }
+      throw e;
+    }
   },
 
   async closePane(tabId, sessionId) {
     const tab = get().tabs.find((t) => t.id === tabId);
     if (!tab) return;
+    const close = tab.type === "local" ? localTermApi.close : sessionsApi.close;
     try {
-      await sessionsApi.close(sessionId);
+      await close(sessionId);
     } catch (e) {
-      console.warn("close_session:", e);
+      console.warn("close session:", e);
     }
     if (!tab.layout) {
       // Single-pane SSH tab — close the whole tab.

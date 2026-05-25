@@ -1,4 +1,12 @@
-import { Command, Settings as SettingsIcon } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Command,
+  Loader2,
+  Settings as SettingsIcon,
+} from "lucide-react";
+
+import { useSyncStore } from "@/stores/useSyncStore";
 
 type Props = {
   onOpenSettings: () => void;
@@ -16,7 +24,7 @@ export function Header({ onOpenSettings, onOpenPalette }: Props) {
         <Logo />
         <div className="flex flex-col leading-tight">
           <span className="text-sm font-semibold tracking-tight text-(--color-text)">
-            Termius v2
+            Lynk Client
           </span>
           <span className="text-[10px] uppercase tracking-wider text-(--color-muted)">
             SSH client
@@ -25,6 +33,7 @@ export function Header({ onOpenSettings, onOpenPalette }: Props) {
       </div>
 
       <div className="flex items-center gap-1">
+        <SyncIndicator onOpenSettings={onOpenSettings} />
         <button
           type="button"
           onClick={onOpenPalette}
@@ -55,24 +64,59 @@ export function Header({ onOpenSettings, onOpenPalette }: Props) {
   );
 }
 
+/**
+ * Compact sync status pill in the header. Clicking it opens Settings on
+ * the Sync section, which is the most useful "I want to look at this"
+ * action. Hidden entirely when sync isn't configured to avoid cluttering
+ * the chrome for users who don't care.
+ */
+function SyncIndicator({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const config = useSyncStore((s) => s.config);
+  const status = useSyncStore((s) => s.status);
+  const lastResult = useSyncStore((s) => s.lastResult);
+  if (!config?.enabled) return null;
+
+  const isBusy = status === "busy";
+  const isErr = status === "error" || Boolean(config.last_error);
+
+  const lastTime = config.last_pushed_at ?? config.last_pulled_at;
+  const title = isErr
+    ? `Sync en erreur : ${config.last_error ?? "voir les réglages"}`
+    : isBusy
+      ? "Sync en cours…"
+      : lastResult
+        ? `Dernier : ${lastResult.summary}`
+        : lastTime
+          ? `Dernière sync : ${lastTime}`
+          : "Sync configurée, en attente";
+
+  return (
+    <button
+      type="button"
+      onClick={onOpenSettings}
+      title={title}
+      className={
+        isErr
+          ? "inline-flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-1 text-[10px] text-red-400 hover:bg-red-500/20"
+          : isBusy
+            ? "inline-flex items-center gap-1 rounded-md bg-(--color-accent-bg)/30 px-2 py-1 text-[10px] text-(--color-accent)"
+            : "inline-flex items-center gap-1 rounded-md bg-green-500/10 px-2 py-1 text-[10px] text-green-400 hover:bg-green-500/20"
+      }
+    >
+      {isBusy ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : isErr ? (
+        <AlertCircle className="h-3 w-3" />
+      ) : (
+        <CheckCircle2 className="h-3 w-3" />
+      )}
+      <span>Sync</span>
+    </button>
+  );
+}
+
 function Logo() {
   return (
-    <div className="relative grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-(--color-accent) to-(--color-accent-soft) shadow-[0_0_12px_-2px_var(--color-accent)]">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-3.5 w-3.5 text-(--color-bg)"
-        role="img"
-        aria-label="Termius v2 logo"
-      >
-        <title>Termius v2</title>
-        <polyline points="4 17 10 11 4 5" />
-        <line x1="12" y1="19" x2="20" y2="19" />
-      </svg>
-    </div>
+    <img src="/logo-mark.png" alt="Lynk Client" className="h-7 w-7 select-none" draggable={false} />
   );
 }

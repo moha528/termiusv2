@@ -1,4 +1,4 @@
-# Contribuer à Termius v2
+# Contribuer à Lynk Client
 
 Merci de vouloir contribuer ! Ce document décrit le workflow, les conventions
 et la structure du projet pour que vous puissiez commencer rapidement.

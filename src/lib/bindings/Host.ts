@@ -3,4 +3,32 @@
 /**
  * A remote SSH endpoint persisted in the local database.
  */
-export type Host = { id: string, label: string, hostname: string, port: number, username: string, group_id: string | null, created_at: string, updated_at: string, };
+export type Host = { id: string, label: string, hostname: string, port: number, username: string, group_id: string | null, 
+/**
+ * When set, the connection is tunneled through this other host (ProxyJump).
+ */
+proxy_jump_host_id: string | null, 
+/**
+ * When set, runtime SSH params (username, agent forward, keys) come
+ * from this identity instead of the host's own fields (P4-T05).
+ */
+identity_id: string | null, 
+/**
+ * Request SSH agent forwarding on the PTY channel (P3-T14).
+ */
+agent_forward: boolean, 
+/**
+ * Tee the PTY byte stream to a local log file (P3-T15).
+ */
+log_to_file: boolean, 
+/**
+ * Local script executed before opening the SSH session (P4-T06). May
+ * be empty. Each non-empty line is passed to the OS shell.
+ */
+pre_connect_script: string, 
+/**
+ * Lines pushed into the remote PTY right after the shell is ready
+ * (P4-T06). May be empty. A trailing newline is appended so the last
+ * line is actually executed.
+ */
+post_connect_script: string, created_at: string, updated_at: string, };

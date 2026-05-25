@@ -28,6 +28,31 @@ type Settings = {
    * we skip the prompt.
    */
   autoRestoreSessions: boolean | null;
+  /**
+   * Auto-lock the vault after this many minutes of inactivity (P3-T08).
+   * `0` disables the timer. The lock only fires if a master password is
+   * configured — otherwise there's nothing to unlock with.
+   */
+  autoLockMinutes: number;
+  /**
+   * Scope for the Ctrl+R command-history finder (P4-T03):
+   *  - `"host"`: only commands typed in the currently-active host (+ global)
+   *  - `"global"`: every recorded command across all hosts
+   */
+  commandHistoryScope: "host" | "global";
+  /**
+   * Bell (`\a`) notification behavior (P4-T10):
+   *  - `"off"`: ignore BEL bytes
+   *  - `"focus-only"`: only notify when the app is hidden / unfocused
+   *  - `"all"`: always notify
+   */
+  bellNotifications: "off" | "focus-only" | "all";
+  /**
+   * Opt-in anonymous crash reporting (P5-T08). Default OFF. Currently a
+   * stored preference only — no telemetry backend is wired yet, so toggling
+   * it on does nothing observable until a future release ships the reporter.
+   */
+  crashReportingOptIn: boolean;
 };
 
 const DEFAULTS: Settings = {
@@ -40,6 +65,10 @@ const DEFAULTS: Settings = {
   showHiddenFiles: false,
   restorableTabs: [],
   autoRestoreSessions: null,
+  autoLockMinutes: 0,
+  commandHistoryScope: "host",
+  bellNotifications: "focus-only",
+  crashReportingOptIn: false,
 };
 
 type SettingsState = Settings & {
@@ -58,6 +87,10 @@ const KEY_MAP: Record<keyof Settings, string> = {
   showHiddenFiles: "show_hidden_files",
   restorableTabs: "restorable_tabs",
   autoRestoreSessions: "auto_restore_sessions",
+  autoLockMinutes: "auto_lock_minutes",
+  commandHistoryScope: "command_history_scope",
+  bellNotifications: "bell_notifications",
+  crashReportingOptIn: "crash_reporting_opt_in",
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({

@@ -7,6 +7,7 @@ import { keyvaultApi } from "@/lib/keyvault";
 import type { SessionTab } from "@/stores/useSessionsStore";
 import { useSessionsStore } from "@/stores/useSessionsStore";
 
+import { Connecting } from "./Connecting";
 import { SftpView } from "./SftpView";
 import { SplitLayout } from "./SplitLayout";
 
@@ -34,6 +35,13 @@ export function SessionPane({ tab }: Props) {
     [markClosed, tab.id],
   );
 
+  // Shared "connecting" loader — used for SSH/SFTP/local while the open IPC
+  // hasn't resolved yet. We show this BEFORE branching by type because the
+  // experience is the same regardless.
+  if (tab.status.kind === "connecting") {
+    return <Connecting tab={tab} />;
+  }
+
   // SFTP tab — keep the simple single-pane flow.
   if (tab.type === "sftp") {
     if (tab.status.kind === "open") {
@@ -42,11 +50,57 @@ export function SessionPane({ tab }: Props) {
     return <Disconnected tab={tab} onReconnect={(pw) => reconnect(tab.id, pw)} />;
   }
 
+  // Local terminal tab — no SSH reconnect flow; offer a "Spawn new shell"
+  // button instead when the previous shell has exited.
+  if (tab.type === "local") {
+    if (tab.status.kind === "open" || tab.layout) {
+      return <SplitLayout tab={tab} onClosed={onClosed} />;
+    }
+    return (
+      <LocalExited
+        reason={tab.status.kind === "closed" ? tab.status.reason : ""}
+        onRespawn={() => reconnect(tab.id, "")}
+      />
+    );
+  }
+
   // SSH tab — either single pane (status) or recursive split layout.
   if (tab.layout || tab.status.kind === "open") {
     return <SplitLayout tab={tab} onClosed={onClosed} />;
   }
   return <Disconnected tab={tab} onReconnect={(pw) => reconnect(tab.id, pw)} />;
+}
+
+function LocalExited({ reason, onRespawn }: { reason: string; onRespawn: () => void }) {
+  const [submitting, setSubmitting] = useState(false);
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-(--color-bg)">
+      <div className="flex w-80 flex-col items-center gap-5 rounded-xl border border-(--color-border) bg-(--color-panel) p-8 shadow-2xl shadow-black/30">
+        <div className="grid h-12 w-12 place-items-center rounded-full bg-(--color-elevated) text-(--color-muted)">
+          <Plug className="h-5 w-5" />
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-medium text-(--color-text)">Shell terminé</p>
+          {reason && <p className="mt-1 text-[11px] text-(--color-muted-soft)">{reason}</p>}
+        </div>
+        <Button
+          onClick={async () => {
+            setSubmitting(true);
+            try {
+              await onRespawn();
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+          disabled={submitting}
+          className="w-full"
+        >
+          <RotateCw className="h-3.5 w-3.5" />
+          {submitting ? "Démarrage…" : "Nouveau shell"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function Disconnected({

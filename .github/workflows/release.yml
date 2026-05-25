@@ -1,5 +1,23 @@
-# Release workflow — squelette désactivé. Sera activé en Phase 5 (P5-T07).
-# Active manuellement en supprimant le `if: false` ou via le workflow_dispatch.
+# Release workflow (P5-T07).
+#
+# Déclenchement :
+#   - push d'un tag `vX.Y.Z`  → build + Release GitHub (draft)
+#   - workflow_dispatch        → build manuel depuis l'onglet Actions
+#
+# Produit pour chaque OS les installeurs + les artefacts updater
+# (`*.sig` + `latest.json`) grâce à `createUpdaterArtifacts: true` dans
+# tauri.conf.json. `tauri-action` génère et attache `latest.json`, que
+# l'endpoint updater de l'app pointe via la Release "latest".
+#
+# Secrets requis dans le repo (Settings → Secrets and variables → Actions) :
+#   - TAURI_SIGNING_PRIVATE_KEY          : clé privée minisign (cf. docs/),
+#                                          générée via `pnpm tauri signer generate`
+#   - TAURI_SIGNING_PRIVATE_KEY_PASSWORD : son mot de passe (vide si non protégée)
+#
+# La signature de CODE OS (Windows/macOS) n'est PAS configurée ici : on ship
+# non-signé pour le lancement (cf. docs/faq). On l'ajoutera plus tard via
+# des secrets supplémentaires sans toucher au reste du workflow.
+
 name: Release
 
 on:
@@ -10,7 +28,6 @@ on:
 
 jobs:
   build:
-    if: false # désactivé tant que P5-T07 n'est pas implémenté
     name: Build (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -53,13 +70,18 @@ jobs:
       - name: Install front deps
         run: pnpm install --frozen-lockfile
 
-      - name: Build Tauri app
+      - name: Build & release Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signature des artefacts updater (minisign). Sans ces secrets,
+          # `createUpdaterArtifacts` échoue — ils sont donc requis.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Termius v2 ${{ github.ref_name }}"
+          releaseName: "Lynk Client ${{ github.ref_name }}"
+          releaseBody: "Voir le CHANGELOG. Installeurs ci-dessous (non signés — voir la FAQ pour contourner l'avertissement OS)."
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

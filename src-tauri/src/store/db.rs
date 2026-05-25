@@ -40,7 +40,7 @@ pub async fn init_pool(db_path: &Path) -> Result<DbPool> {
 
 /// Resolve the production database path inside the Tauri app data directory.
 pub fn default_db_path(app_data_dir: &Path) -> PathBuf {
-    app_data_dir.join("termiusv2.sqlite")
+    app_data_dir.join("lynk.sqlite")
 }
 
 #[cfg(test)]

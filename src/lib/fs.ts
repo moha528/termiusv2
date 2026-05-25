@@ -114,7 +114,7 @@ export function parentOf(adapter: FsAdapter, path: string): string {
 }
 
 /** MIME type we attach to inter-pane drag events so we can detect our own drops. */
-export const DRAG_MIME = "application/x-termiusv2-files";
+export const DRAG_MIME = "application/x-lynk-files";
 
 /**
  * What we encode in `dataTransfer` when the user drags one or more rows from

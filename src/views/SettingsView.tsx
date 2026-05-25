@@ -1,5 +1,27 @@
-import { Check, X } from "lucide-react";
+import {
+  Check,
+  Cloud,
+  FileText,
+  Info,
+  Key,
+  Keyboard,
+  Monitor,
+  Palette,
+  ShieldCheck,
+  Sparkles,
+  Terminal as TerminalIcon,
+  Users,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
+import { AboutSection } from "@/components/AboutSection";
+import { IdentitiesSection } from "@/components/IdentitiesSection";
+import { KeybindingsSection } from "@/components/KeybindingsSection";
+import { KeysSection } from "@/components/KeysSection";
+import { KnownHostsSection } from "@/components/KnownHostsSection";
+import { SecuritySection } from "@/components/SecuritySection";
+import { SyncSection } from "@/components/SyncSection";
 import { TERMINAL_THEMES, type ThemeId } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 import { useSettingsStore } from "@/stores/useSettingsStore";
@@ -9,87 +31,276 @@ type Props = {
   onClose: () => void;
 };
 
+type SectionId =
+  | "appearance"
+  | "terminal"
+  | "files"
+  | "productivity"
+  | "keybindings"
+  | "security"
+  | "identities"
+  | "keys"
+  | "known-hosts"
+  | "sync"
+  | "about";
+
+type NavEntry = {
+  id: SectionId;
+  label: string;
+  icon: React.ReactNode;
+  hint?: string;
+};
+
+const NAV: NavEntry[] = [
+  { id: "appearance", label: "Apparence", icon: <Palette className="h-3.5 w-3.5" /> },
+  { id: "terminal", label: "Terminal", icon: <TerminalIcon className="h-3.5 w-3.5" /> },
+  { id: "files", label: "Fichiers", icon: <FileText className="h-3.5 w-3.5" /> },
+  { id: "productivity", label: "Productivité", icon: <Sparkles className="h-3.5 w-3.5" /> },
+  { id: "keybindings", label: "Raccourcis", icon: <Keyboard className="h-3.5 w-3.5" /> },
+  { id: "security", label: "Sécurité", icon: <ShieldCheck className="h-3.5 w-3.5" /> },
+  { id: "identities", label: "Identities", icon: <Users className="h-3.5 w-3.5" /> },
+  { id: "keys", label: "Clés SSH", icon: <Key className="h-3.5 w-3.5" /> },
+  {
+    id: "known-hosts",
+    label: "Empreintes",
+    icon: <Monitor className="h-3.5 w-3.5" />,
+  },
+  { id: "sync", label: "Sync", icon: <Cloud className="h-3.5 w-3.5" /> },
+  { id: "about", label: "À propos", icon: <Info className="h-3.5 w-3.5" /> },
+];
+
+/**
+ * Centered fullscreen settings modal with left navigation and scrollable
+ * content pane. The previous drawer overflowed as the feature surface grew;
+ * a two-pane layout scales much further without making the user scroll
+ * through everything at once.
+ */
 export function SettingsView({ open, onClose }: Props) {
-  const appTheme = useSettingsStore((s) => s.appTheme);
-  const terminalTheme = useSettingsStore((s) => s.terminalTheme);
-  const showHidden = useSettingsStore((s) => s.showHiddenFiles);
-  const setSetting = useSettingsStore((s) => s.set);
+  const [section, setSection] = useState<SectionId>("appearance");
+
+  // Close on Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <button
         type="button"
-        aria-label="Close settings"
+        aria-label="Fermer les réglages"
         onClick={onClose}
-        className="flex-1 cursor-default"
+        className="absolute inset-0 cursor-default"
       />
-      <aside className="flex h-full w-[400px] flex-col border-l border-(--color-border-strong) bg-(--color-panel) shadow-2xl shadow-black/40">
-        <header className="flex h-10 shrink-0 items-center justify-between border-b border-(--color-border) px-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-(--color-muted)">
-            Réglages
-          </h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="rounded p-1 text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text)"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </header>
+      <div
+        className={cn(
+          "relative flex h-[80vh] max-h-[700px] w-[90vw] max-w-4xl",
+          "overflow-hidden rounded-xl border border-(--color-border-strong) bg-(--color-panel)",
+          "shadow-2xl shadow-black/40",
+        )}
+      >
+        {/* Left nav */}
+        <aside className="flex h-full w-[200px] shrink-0 flex-col border-r border-(--color-border) bg-(--color-bg-soft)">
+          <header className="flex h-10 shrink-0 items-center px-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-(--color-muted)">
+              Réglages
+            </span>
+          </header>
+          <ul className="flex-1 overflow-y-auto px-2 pb-2">
+            {NAV.map((entry) => (
+              <li key={entry.id}>
+                <button
+                  type="button"
+                  onClick={() => setSection(entry.id)}
+                  className={cn(
+                    "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                    section === entry.id
+                      ? "bg-(--color-panel) text-(--color-text)"
+                      : "text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text-soft)",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "grid h-5 w-5 shrink-0 place-items-center rounded text-(--color-muted)",
+                      section === entry.id && "text-(--color-accent)",
+                    )}
+                  >
+                    {entry.icon}
+                  </span>
+                  <span className="flex-1 truncate font-medium">{entry.label}</span>
+                  {section === entry.id && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-(--color-accent)" />
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
 
-        <div className="flex-1 overflow-y-auto p-3">
-          <Section title="Apparence" subtitle="Sidebar, dialogs, zone principale">
-            <ThemeGrid
-              selectedId={appTheme}
-              onSelect={(id) => setSetting("appTheme", id)}
-              renderPreview={(t) => <AppPreview palette={t.app} />}
-            />
-          </Section>
-
-          <Section title="Terminal" subtitle="Sessions SSH — indépendant de l'app">
-            <ThemeGrid
-              selectedId={terminalTheme}
-              onSelect={(id) => setSetting("terminalTheme", id)}
-              renderPreview={(t) => <TerminalPreview theme={t.terminal} />}
-            />
-          </Section>
-
-          <Section title="Fichiers">
-            <Toggle
-              label="Afficher les fichiers cachés"
-              description="Inclut les entrées « .xxx »"
-              checked={showHidden}
-              onChange={(v) => setSetting("showHiddenFiles", v)}
-            />
-          </Section>
-        </div>
-      </aside>
+        {/* Right content */}
+        <main className="relative flex h-full min-w-0 flex-1 flex-col">
+          <header className="flex h-10 shrink-0 items-center justify-between border-b border-(--color-border) px-4">
+            <h2 className="text-sm font-semibold text-(--color-text)">
+              {NAV.find((n) => n.id === section)?.label}
+            </h2>
+            <button
+              type="button"
+              aria-label="Fermer"
+              onClick={onClose}
+              className="rounded-md p-1 text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            <SectionContent section={section} />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
 
-function Section({
-  title,
-  subtitle,
-  children,
+function SectionContent({ section }: { section: SectionId }) {
+  const appTheme = useSettingsStore((s) => s.appTheme);
+  const terminalTheme = useSettingsStore((s) => s.terminalTheme);
+  const showHidden = useSettingsStore((s) => s.showHiddenFiles);
+  const autoRestore = useSettingsStore((s) => s.autoRestoreSessions);
+  const historyScope = useSettingsStore((s) => s.commandHistoryScope);
+  const bellNotifications = useSettingsStore((s) => s.bellNotifications);
+  const setSetting = useSettingsStore((s) => s.set);
+
+  switch (section) {
+    case "appearance":
+      return (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-(--color-muted)">
+            Palette utilisée par la sidebar, les dialogs et la zone principale.
+          </p>
+          <ThemeGrid
+            selectedId={appTheme}
+            onSelect={(id) => setSetting("appTheme", id)}
+            renderPreview={(t) => <AppPreview palette={t.app} />}
+          />
+        </div>
+      );
+    case "terminal":
+      return (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-(--color-muted)">
+            Palette des terminaux xterm.js — indépendante de l'apparence générale.
+          </p>
+          <ThemeGrid
+            selectedId={terminalTheme}
+            onSelect={(id) => setSetting("terminalTheme", id)}
+            renderPreview={(t) => <TerminalPreview theme={t.terminal} />}
+          />
+        </div>
+      );
+    case "files":
+      return (
+        <div className="flex flex-col gap-2">
+          <Toggle
+            label="Afficher les fichiers cachés"
+            description="Inclut les entrées « .xxx » dans les panneaux SFTP et locaux."
+            checked={showHidden}
+            onChange={(v) => setSetting("showHiddenFiles", v)}
+          />
+          <Toggle
+            label="Restaurer automatiquement les sessions"
+            description="Au démarrage, rouvrir les onglets de la session précédente sans demander."
+            checked={autoRestore === true}
+            onChange={(v) => setSetting("autoRestoreSessions", v ? true : null)}
+          />
+        </div>
+      );
+    case "productivity":
+      return (
+        <div className="flex flex-col gap-3">
+          <Choice
+            label="Portée de l'historique de commandes"
+            description="Filtre appliqué quand tu ouvres l'historique avec Ctrl+R."
+            value={historyScope}
+            options={[
+              { value: "host", label: "Host actif + global", hint: "recommandé" },
+              { value: "global", label: "Toutes sessions" },
+            ]}
+            onChange={(v) => setSetting("commandHistoryScope", v as "host" | "global")}
+          />
+          <Choice
+            label="Notifications terminal bell (\\a)"
+            description="Une notification système est émise quand le shell envoie un BEL."
+            value={bellNotifications}
+            options={[
+              { value: "focus-only", label: "App en arrière-plan", hint: "défaut" },
+              { value: "all", label: "Toujours" },
+              { value: "off", label: "Désactivé" },
+            ]}
+            onChange={(v) => setSetting("bellNotifications", v as "off" | "focus-only" | "all")}
+          />
+        </div>
+      );
+    case "keybindings":
+      return <KeybindingsSection />;
+    case "security":
+      return <SecuritySection />;
+    case "identities":
+      return <IdentitiesSection />;
+    case "keys":
+      return <KeysSection />;
+    case "known-hosts":
+      return <KnownHostsSection />;
+    case "sync":
+      return <SyncSection />;
+    case "about":
+      return <AboutSection />;
+  }
+}
+
+function Choice({
+  label,
+  description,
+  value,
+  options,
+  onChange,
 }: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
+  label: string;
+  description?: string;
+  value: string;
+  options: Array<{ value: string; label: string; hint?: string }>;
+  onChange: (v: string) => void;
 }) {
   return (
-    <section className="mb-4">
-      <div className="mb-2 flex items-baseline justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-(--color-muted)">
-          {title}
-        </h3>
-        {subtitle && <span className="text-[10px] text-(--color-muted-soft)">{subtitle}</span>}
+    <div className="flex flex-col gap-1.5 rounded-md border border-(--color-border) bg-(--color-bg-soft) p-3">
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-(--color-text)">{label}</span>
+        {description && <span className="text-[10px] text-(--color-muted)">{description}</span>}
       </div>
-      {children}
-    </section>
+      <div className="flex gap-1.5">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[11px] transition-colors",
+              value === o.value
+                ? "border-(--color-accent) bg-(--color-accent-bg)/30 text-(--color-text)"
+                : "border-(--color-border) bg-(--color-panel) text-(--color-muted) hover:bg-(--color-panel-hover) hover:text-(--color-text)",
+            )}
+          >
+            {o.label}
+            {o.hint && <span className="text-[10px] text-(--color-muted-soft)">· {o.hint}</span>}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -114,7 +325,7 @@ function ThemeGrid({
               onClick={() => onSelect(id)}
               title={t.name}
               className={cn(
-                "group relative flex items-center gap-2 overflow-hidden rounded-md border px-2 py-1.5 text-left transition-all",
+                "group relative flex items-center gap-2 overflow-hidden rounded-md border px-2 py-2 text-left transition-all",
                 selected
                   ? "border-(--color-accent) bg-(--color-accent-bg)/30 ring-1 ring-(--color-accent)/30"
                   : "border-(--color-border) bg-(--color-bg-soft) hover:border-(--color-border-strong) hover:bg-(--color-panel-hover)",
@@ -143,7 +354,6 @@ function TerminalPreview({
     green?: string;
   };
 }) {
-  // Compact 24×24 swatch made of 4 quadrants to hint at the palette.
   return (
     <div
       className="grid h-6 w-6 shrink-0 grid-cols-2 grid-rows-2 overflow-hidden rounded-sm border border-black/20"

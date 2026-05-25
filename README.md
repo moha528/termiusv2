@@ -1,40 +1,43 @@
-# Termius v2
+<p align="center">
+  <img src="public/logo-mark.png" alt="Lynk Client" width="120" />
+</p>
 
-Client SSH/SFTP desktop libre, multiplateforme, alternative à [Termius](https://termius.com).
+# Lynk Client
+
+**Client SSH/SFTP desktop libre — local-first, chiffré, sans cloud.**
+
+Terminal multi-onglets, SFTP, snippets, identities, port forwarding… et une
+sync chiffrée qui passe par **ton propre dépôt Git**. Pas de compte, pas
+d'abonnement, pas de télémétrie : tes serveurs, tes clés et tes notes ne
+quittent jamais ton contrôle.
+
 Construit avec [Tauri 2](https://tauri.app), React 19 et Rust.
 
-> Voir [CAHIER_DES_CHARGES.md](./CAHIER_DES_CHARGES.md) pour la vision complète,
-> la roadmap (Phases 1 à 5) et le découpage en tickets.
+<!-- TODO(launch): GIF de démo ici (connexion → terminal → sync) -->
 
-## Stack
+## L'idée
 
-- **Desktop shell** : Tauri 2 (IPC, updater, packaging)
-- **Frontend** : React 19 + TypeScript strict + Vite + Tailwind v4 + shadcn-style components (Radix UI)
-- **Terminal** : [xterm.js](https://xtermjs.org) + addons `fit` / `web-links` / `search` / `webgl`
-- **Backend Rust** : [russh](https://crates.io/crates/russh) (SSH client), [sqlx](https://crates.io/crates/sqlx) (SQLite), [ts-rs](https://crates.io/crates/ts-rs) (types partagés), [tokio](https://tokio.rs)
-- **State** : Zustand
-- **Lint / format** : Biome (front) + rustfmt + clippy (back)
+Un client SSH moderne ne devrait pas t'obliger à confier tes accès à un
+service tiers pour les retrouver sur tes autres machines.
 
-## Prérequis
+- 🔒 **Local-first** — tout reste sur ta machine. Mots de passe et passphrases
+  dans le keychain de l'OS ; vault chiffré Argon2id + AES-256-GCM.
+- 🔁 **Une sync que tu possèdes** — le vault chiffré est poussé dans **ton**
+  repo Git privé (GitHub, GitLab, Gitea, self-hosted). Auto-push après chaque
+  modif, pull au démarrage. Le contenu est illisible sans ta clé — y compris
+  pour l'hébergeur du repo.
+- 🆓 **Gratuit et ouvert** — les fonctions essentielles ne sont pas derrière un
+  paywall.
+- 🚫 **Zéro télémétrie** — rien ne quitte la machine sans que tu le décides.
 
-- **Node.js >= 20** et **pnpm >= 9**
-- **Rust stable** (via [rustup](https://www.rust-lang.org/learn/get-started))
-- **Dépendances système Tauri** pour votre OS — voir https://tauri.app/start/prerequisites/
-  - macOS : Xcode CLT
-  - Linux : `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`, `libssl-dev`
-  - Windows : Visual Studio Build Tools avec workload C++ + Windows SDK
+## Télécharger
 
-## Démarrage rapide
+Installeurs pour Windows, macOS (Intel + Apple Silicon) et Linux sur la
+[**page des releases**](https://github.com/moha528/termiusv2/releases/latest).
 
-```bash
-git clone https://github.com/moha528/termiusv2.git
-cd termiusv2
-pnpm install
-pnpm tauri dev
-```
-
-La première compilation Rust prend plusieurs minutes (russh + tauri + ses dépendances).
-Les builds suivantes utilisent le cache et sont rapides.
+> Les installeurs ne sont pas encore signés (certificats payants) : ton OS
+> peut afficher un avertissement à l'installation. Deux clics pour le
+> contourner — voir la [FAQ](./docs/faq.md#avertissements-dinstallation).
 
 ## Fonctionnalités
 
@@ -47,7 +50,9 @@ Les builds suivantes utilisent le cache et sont rapides.
 - Persistance des préférences UI (sidebar width, thème, dernier onglet actif)
 
 **Phase 2 — Multi-tabs & SFTP** ✅
-- Groupes / tags / filtres (à câbler en UI Phase 2 bis)
+- Groupes : sidebar arborescente pliable, DnD host → groupe, context menu (rename/delete)
+- Tags : multi-tag par host, TagPicker avec création à la volée, badges colorés dans la liste
+- Filtre par tag : pills cliquables au-dessus de la liste avec sémantique OR
 - Parser `~/.ssh/config` + assistant d'import
 - SFTP complet : list/stat/mkdir/remove/rename/upload/download streamés, transferts cancellables
 - Vue dual-pane Local | Remote, drag & drop bidirectionnel, multi-sélection
@@ -58,6 +63,7 @@ Les builds suivantes utilisent le cache et sont rapides.
 - Sessions persistantes au démarrage avec dialog Restore
 
 **Extras hors-roadmap** ✅
+- Terminal local : onglet « Local » qui spawn un shell sur la machine via `portable-pty`
 - Custom window chrome (Mica sur Win 11, caption color fallback Win 10)
 - Keychain OS pour mémoriser les mots de passe (anticipe P3-T06)
 - Command palette globale (Ctrl+K) avec fuzzy search sur hosts + actions
@@ -65,10 +71,60 @@ Les builds suivantes utilisent le cache et sont rapides.
 - Toasts globaux (sonner) sur toutes les actions backend
 - Thèmes app et terminal indépendants
 
+**Phase 3 — Sécurité & SSH avancé** ✅
+- Clés SSH ed25519 / RSA 4096 : génération, import OpenSSH/PEM, association multi-clés par host avec priorité
+- PIN d'accès (Argon2id) + auto-lock après inactivité (5/15/30/60 min) — ferme sessions ET port forwards
+- UI known_hosts (TOFU) avec oubli individuel
+- ProxyJump multi-niveau (détection de cycles)
+- Port forwarding `-L` / `-R` / `-D` SOCKS5 avec UI dédiée
+- Agent forwarding (Unix socket / Windows OpenSSH-Agent named pipe)
+- Audit log local par host
+
+**Phase 4 — UX power user** ✅
+- Snippets : commandes réutilisables avec variables `{{host}}` / `{{user}}` / `{{date}}` / custom, panneau latéral `Ctrl+Shift+S`, modal de saisie
+- Historique de commandes inter-sessions (Ctrl+R), capture per-session, scope host ou global
+- Raccourcis clavier configurables avec recorder live et détection de conflits
+- Broadcast input multi-pane sur splits avec indicateur visuel
+- Identities SSH (username + agent + clés réutilisables) partagés entre hosts
+- Pré/post connect scripts (local shell avant SSH, lignes envoyées au PTY après ouverture)
+- URLs cliquables (Ctrl+clic → navigateur via tauri-plugin-opener)
+- Recherche dans le buffer (`Ctrl+Shift+F`, case-sensitive + regex)
+- Notifications système sur terminal bell `\a`
+- Palette `Ctrl+K` étendue : actions Snippets / Historique
+
+**Phase 5 — Sync & release** ✅ (release v1.0.0 = étape manuelle, cf. [docs/RELEASING.md](./docs/RELEASING.md))
+- Export chiffré du vault (`.tmv` AES-256-GCM, clé dérivée Argon2id) → hosts/groupes/tags/identities/snippets/forwards
+- Import avec deux modes : merge (ajoute sans destruction) ou replace (wipe + re-insert)
+- Sync Git : auto-push debouncé 30 s du `vault.enc` chiffré dans un repo Git privé que tu contrôles, pull au démarrage avec remote-wins, auth `https-pat` ou `ssh`
+- Indicateur de sync dans le Header (pill verte/orange/rouge)
+- Updater Tauri (check silencieux au démarrage + toast, vérif de signature minisign)
+- Workflow GitHub Actions de packaging multi-OS (msi/nsis · dmg universal · deb/AppImage)
+- Page About (version, liens, check manuel) + opt-in crash reporting
+- Documentation utilisateur dans [`docs/`](./docs/)
+
 À venir (voir [cahier des charges](./CAHIER_DES_CHARGES.md)) :
-- **Phase 3** — clés SSH (génération/import/passphrase), master password + auto-lock, known_hosts UI, ProxyJump, port forwarding (-L/-R/-D), agent forwarding, audit log
-- **Phase 4** — snippets + palette, historique commandes, broadcast multi-pane, identities, pré/post connect scripts, raccourcis configurables, URLs cliquables, recherche dans buffer, notifications, Quick Connect
-- **Phase 5** — export/import chiffré, sync Git, updater Tauri, packaging multi-OS, release v1.0
+- **Phase 6 — Launch** : landing page, docs en ligne, GitHub Sponsors. Léger, post-v1.0.
+- **Phase 7 — Monétisation** *(conditionnelle)* : tier Pro managé, team sync, SSO.
+  Débloquée **uniquement si la demande le justifie** — le cœur reste gratuit et ouvert.
+
+## Construire depuis les sources
+
+Pour contribuer ou builder toi-même :
+
+**Prérequis** — Node.js ≥ 20, pnpm ≥ 9, Rust stable ([rustup](https://www.rust-lang.org/learn/get-started)),
+et les [dépendances système Tauri](https://tauri.app/start/prerequisites/) de ton OS :
+- macOS : Xcode CLT
+- Linux : `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`, `libssl-dev`
+- Windows : Visual Studio Build Tools (workload C++ + Windows SDK)
+
+```bash
+git clone https://github.com/moha528/termiusv2.git
+cd termiusv2
+pnpm install
+pnpm tauri dev
+```
+
+La première compilation Rust prend quelques minutes ; les suivantes sont mises en cache.
 
 ## Scripts utiles
 
@@ -120,4 +176,15 @@ cd src-tauri && cargo test --all-features -- --ignored ssh
 
 ## Licence
 
-MIT — voir [LICENSE](./LICENSE) (à ajouter).
+**[Functional Source License 1.1 (FSL-1.1-MIT)](./LICENSE.md)** — *source-available*.
+
+Concrètement :
+- ✅ Tu peux **lire, utiliser, modifier, redistribuer** le code librement, à
+  titre perso, en interne, pour l'éducation, la recherche.
+- ❌ Tu **ne peux pas** en faire un produit/service commercial concurrent (le
+  revendre tel quel comme une alternative payante).
+- 🔓 Chaque version **bascule automatiquement en licence MIT** au bout de 2 ans.
+
+C'est le modèle de Sentry : transparence totale de l'open source, sans laisser
+quiconque commercialiser le projet à la place de ses auteurs. Si un jour le
+projet est abandonné, la clause MIT-après-2-ans garantit qu'il reste libre.

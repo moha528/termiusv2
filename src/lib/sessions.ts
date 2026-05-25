@@ -12,6 +12,20 @@ export const sessionsApi = {
 };
 
 /**
+ * API for the "Local" terminal tab — drives a child shell on the host
+ * machine instead of a remote SSH session. Same event protocol as
+ * `sessionsApi`, so `onTerminalData` / `onSessionClosed` work as-is.
+ */
+export const localTermApi = {
+  open: (shell?: string) => invoke<string>("open_local_session", { shell: shell ?? null }),
+  sendInput: (sessionId: string, data: string) =>
+    invoke<void>("local_send_input", { sessionId, data }),
+  resize: (sessionId: string, cols: number, rows: number) =>
+    invoke<void>("local_resize", { sessionId, cols, rows }),
+  close: (sessionId: string) => invoke<void>("local_close", { sessionId }),
+};
+
+/**
  * Subscribe to the byte stream of a live session. The backend emits raw
  * `Uint8Array` payloads — we decode them as UTF-8 for xterm.js consumption.
  */

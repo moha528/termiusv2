@@ -51,10 +51,15 @@ export function ImportSshConfigDialog({ open, onOpenChange }: Props) {
     importApi
       .readSshConfig()
       .then((res) => {
-        setState({ kind: "loaded", path: res.path, entries: res.entries });
+        // Hard-filter out Git providers (github/gitlab/bitbucket/...).
+        // They're SSH endpoints that don't grant a shell, so listing
+        // them here just causes confusion — the user came to add real
+        // servers. Hidden entirely rather than "unchecked by default".
+        const filtered = res.entries.filter((e) => !isNonInteractive(e));
+        setState({ kind: "loaded", path: res.path, entries: filtered });
         // Pre-select all non-duplicate entries that have a hostname.
         setSelected(
-          new Set(res.entries.filter((e) => !e.duplicate && e.hostname).map((e) => e.alias)),
+          new Set(filtered.filter((e) => !e.duplicate && e.hostname).map((e) => e.alias)),
         );
       })
       .catch((e) => setState({ kind: "error", message: String(e) }));
@@ -130,6 +135,29 @@ export function ImportSshConfigDialog({ open, onOpenChange }: Props) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Detect SSH config entries that target a Git hosting provider (GitHub,
+ * GitLab, Bitbucket). These accept SSH but don't grant a shell — they
+ * just say "Hi <user>!" and disconnect, which makes them useless as
+ * interactive SSH hosts. We surface them in the list with a "Git" badge
+ * and leave them unchecked so the user has to opt-in.
+ */
+function isNonInteractive(entry: SshConfigImportEntry): boolean {
+  const user = (entry.user ?? "").toLowerCase();
+  const host = (entry.hostname ?? "").toLowerCase();
+  if (user !== "git") return false;
+  return (
+    host === "github.com" ||
+    host.endsWith(".github.com") ||
+    host === "gitlab.com" ||
+    host.endsWith(".gitlab.com") ||
+    host === "bitbucket.org" ||
+    host.endsWith(".bitbucket.org") ||
+    host.endsWith("ssh.dev.azure.com") ||
+    host === "vs-ssh.visualstudio.com"
   );
 }
 

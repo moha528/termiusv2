@@ -10,7 +10,9 @@ use super::DbPool;
 /// Return all hosts, ordered by label (case-insensitive).
 pub async fn list(pool: &DbPool) -> Result<Vec<Host>> {
     let rows = sqlx::query_as::<_, Host>(
-        "SELECT id, label, hostname, port, username, group_id, created_at, updated_at
+        "SELECT id, label, hostname, port, username, group_id, proxy_jump_host_id, identity_id,
+                agent_forward, log_to_file, pre_connect_script, post_connect_script,
+                created_at, updated_at
          FROM hosts
          ORDER BY label COLLATE NOCASE ASC",
     )
@@ -24,8 +26,10 @@ pub async fn list(pool: &DbPool) -> Result<Vec<Host>> {
 pub async fn create(pool: &DbPool, input: HostInput) -> Result<Host> {
     let id = Uuid::new_v4().to_string();
     sqlx::query(
-        "INSERT INTO hosts (id, label, hostname, port, username, group_id)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO hosts (id, label, hostname, port, username, group_id, proxy_jump_host_id,
+                            identity_id, agent_forward, log_to_file,
+                            pre_connect_script, post_connect_script)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
     )
     .bind(&id)
     .bind(&input.label)
@@ -33,6 +37,12 @@ pub async fn create(pool: &DbPool, input: HostInput) -> Result<Host> {
     .bind(input.port)
     .bind(&input.username)
     .bind(&input.group_id)
+    .bind(&input.proxy_jump_host_id)
+    .bind(&input.identity_id)
+    .bind(input.agent_forward)
+    .bind(input.log_to_file)
+    .bind(&input.pre_connect_script)
+    .bind(&input.post_connect_script)
     .execute(pool)
     .await
     .context("insert host")?;
@@ -43,7 +53,9 @@ pub async fn create(pool: &DbPool, input: HostInput) -> Result<Host> {
 /// Fetch a single host by id.
 pub async fn get(pool: &DbPool, id: &str) -> Result<Host> {
     let row = sqlx::query_as::<_, Host>(
-        "SELECT id, label, hostname, port, username, group_id, created_at, updated_at
+        "SELECT id, label, hostname, port, username, group_id, proxy_jump_host_id, identity_id,
+                agent_forward, log_to_file, pre_connect_script, post_connect_script,
+                created_at, updated_at
          FROM hosts WHERE id = ?1",
     )
     .bind(id)
@@ -58,6 +70,9 @@ pub async fn update(pool: &DbPool, id: &str, input: HostInput) -> Result<Host> {
     sqlx::query(
         "UPDATE hosts
          SET label = ?2, hostname = ?3, port = ?4, username = ?5, group_id = ?6,
+             proxy_jump_host_id = ?7, identity_id = ?8,
+             agent_forward = ?9, log_to_file = ?10,
+             pre_connect_script = ?11, post_connect_script = ?12,
              updated_at = datetime('now')
          WHERE id = ?1",
     )
@@ -67,6 +82,12 @@ pub async fn update(pool: &DbPool, id: &str, input: HostInput) -> Result<Host> {
     .bind(input.port)
     .bind(&input.username)
     .bind(&input.group_id)
+    .bind(&input.proxy_jump_host_id)
+    .bind(&input.identity_id)
+    .bind(input.agent_forward)
+    .bind(input.log_to_file)
+    .bind(&input.pre_connect_script)
+    .bind(&input.post_connect_script)
     .execute(pool)
     .await
     .with_context(|| format!("update host {id}"))?;
@@ -107,6 +128,12 @@ mod tests {
             port: 22,
             username: "deploy".into(),
             group_id: None,
+            proxy_jump_host_id: None,
+            identity_id: None,
+            agent_forward: false,
+            log_to_file: false,
+            pre_connect_script: String::new(),
+            post_connect_script: String::new(),
         }
     }
 
@@ -134,6 +161,12 @@ mod tests {
                 port: 2222,
                 username: "deploy".into(),
                 group_id: None,
+                proxy_jump_host_id: None,
+                identity_id: None,
+                agent_forward: false,
+                log_to_file: false,
+                pre_connect_script: String::new(),
+                post_connect_script: String::new(),
             },
         )
         .await

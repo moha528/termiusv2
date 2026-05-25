@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Termius v2",
+  "productName": "Lynk Client",
   "version": "0.1.0",
-  "identifier": "dev.termiusv2.app",
+  "identifier": "io.github.moha528.lynk",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Termius v2",
+        "title": "Lynk Client",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -28,6 +28,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
+    "publisher": "Lynk Client contributors",
+    "category": "DeveloperTool",
+    "shortDescription": "Client SSH/SFTP desktop libre",
+    "longDescription": "Lynk Client — client SSH/SFTP desktop multiplateforme, local-first et chiffré : terminal multi-onglets, SFTP dual-pane, snippets, identities, sync Git chiffrée.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,5 +40,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/moha528/termiusv2/releases/latest/download/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRDMzE0OEVDRDdCN0JBM0UKUldRK3VyZlg3RWd4VE54aVNBUmJ0aVRqSFlRQm4yTzc1WDE4NzcvVjJHQWZvb043TE9FcVdsU2gK"
+    }
   }
 }

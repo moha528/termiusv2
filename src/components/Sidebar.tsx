@@ -1,23 +1,36 @@
-import { Download, Plus, Search } from "lucide-react";
+import { Download, FolderPlus, Plus, Search } from "lucide-react";
 import { useState } from "react";
 
 import type { Host } from "@/lib/bindings/Host";
+import { withToast } from "@/lib/feedback";
+import { useGroupsStore } from "@/stores/useGroupsStore";
 import { useServersStore } from "@/stores/useServersStore";
 import type { SessionTabType } from "@/stores/useSessionsStore";
 
 import { ServerList } from "./ServerList";
+import { TagFilterBar } from "./TagFilterBar";
 import { Input } from "./ui/Input";
+import { PromptDialog } from "./ui/PromptDialog";
 
 type SidebarProps = {
   width: number;
   onOpenSession?: (host: Host, type?: SessionTabType) => void;
   onOpenImport: () => void;
   onOpenNewHost: () => void;
+  onOpenForwards: (host: Host) => void;
 };
 
-export function Sidebar({ width, onOpenSession, onOpenImport, onOpenNewHost }: SidebarProps) {
+export function Sidebar({
+  width,
+  onOpenSession,
+  onOpenImport,
+  onOpenNewHost,
+  onOpenForwards,
+}: SidebarProps) {
   const [query, setQuery] = useState("");
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
   const hostCount = useServersStore((s) => s.hosts.length);
+  const createGroup = useGroupsStore((s) => s.create);
 
   return (
     <aside
@@ -36,6 +49,15 @@ export function Sidebar({ width, onOpenSession, onOpenImport, onOpenNewHost }: S
           )}
         </div>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setNewGroupOpen(true)}
+            aria-label="Nouveau groupe"
+            title="Nouveau groupe"
+            className="rounded-md p-1 text-(--color-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-text)"
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+          </button>
           <button
             type="button"
             onClick={onOpenImport}
@@ -69,9 +91,26 @@ export function Sidebar({ width, onOpenSession, onOpenImport, onOpenNewHost }: S
         </div>
       </div>
 
+      <TagFilterBar />
+
       <div className="flex-1 overflow-y-auto px-2 pb-2">
-        <ServerList onOpenSession={onOpenSession} query={query} />
+        <ServerList onOpenSession={onOpenSession} onOpenForwards={onOpenForwards} query={query} />
       </div>
+
+      <PromptDialog
+        open={newGroupOpen}
+        title="Nouveau groupe"
+        label="Nom du groupe"
+        confirmText="Créer"
+        onOpenChange={setNewGroupOpen}
+        onConfirm={async (name) => {
+          if (!name) return;
+          await withToast(createGroup({ name, parent_id: null, position: 0 }), {
+            loading: "Création…",
+            success: "Groupe créé",
+          });
+        }}
+      />
     </aside>
   );
 }

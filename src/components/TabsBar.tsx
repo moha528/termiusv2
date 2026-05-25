@@ -1,4 +1,4 @@
-import { FolderTree, Plus, Terminal as TerminalIcon, X } from "lucide-react";
+import { Cpu, FolderTree, Plus, Terminal as TerminalIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -155,10 +155,22 @@ function NewTabButton({ onClick }: { onClick: () => void }) {
 
 function TabIcon({ type }: { type: SessionTabType }) {
   const cls = "h-3 w-3 shrink-0 text-(--color-muted-soft)";
-  return type === "sftp" ? <FolderTree className={cls} /> : <TerminalIcon className={cls} />;
+  if (type === "sftp") return <FolderTree className={cls} />;
+  if (type === "local") return <Cpu className={cls} />;
+  return <TerminalIcon className={cls} />;
 }
 
-function StatusDot({ kind }: { kind: "open" | "closed" }) {
+function StatusDot({ kind }: { kind: "open" | "closed" | "connecting" }) {
+  if (kind === "connecting") {
+    // Pulsing amber dot to signal "we're working on it". Tailwind's
+    // animate-ping fades a halo around the dot; the inner dot stays solid.
+    return (
+      <span className="relative h-1.5 w-1.5 shrink-0">
+        <span className="absolute inset-0 rounded-full bg-amber-400 opacity-75 animate-ping" />
+        <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+      </span>
+    );
+  }
   const color = {
     open: "bg-(--color-success) shadow-[0_0_6px_var(--color-success)]",
     closed: "bg-(--color-muted-soft)",

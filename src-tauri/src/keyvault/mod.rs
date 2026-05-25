@@ -11,7 +11,7 @@
 use anyhow::{Context, Result};
 use keyring::Entry;
 
-const SERVICE: &str = "dev.termiusv2.app";
+const SERVICE: &str = "io.github.moha528.lynk";
 
 fn entry(account: &str) -> Result<Entry> {
     Entry::new(SERVICE, account).with_context(|| format!("keyring entry {account}"))

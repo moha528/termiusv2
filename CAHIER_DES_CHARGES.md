@@ -1,6 +1,6 @@
 # Cahier des charges — Client SSH/SFTP Desktop
 
-> **Document de référence** pour le développement d'une application desktop de gestion de serveurs SSH/SFTP, alternative libre à Termius.
+> **Document de référence** pour le développement d'une application desktop de gestion de serveurs SSH/SFTP, libre et local-first.
 > Destiné à l'exécution par des agents autonomes. Chaque ticket est conçu pour être atomique (1–4 heures de dev).
 
 ---
@@ -24,7 +24,7 @@
 ## 1. Contexte & objectifs
 
 ### Vision
-Un client SSH/SFTP desktop **léger, rapide, multiplateforme**, qui couvre le quotidien d'un dev/ops sans demander d'abonnement. Cible de qualité : **rivaliser avec Termius Free**, et dépasser sur quelques points-clés (intégration `~/.ssh/config`, sync auto-hébergeable).
+Un client SSH/SFTP desktop **léger, rapide, multiplateforme**, qui couvre le quotidien d'un dev/ops sans demander d'abonnement. Cible de qualité : **un client gratuit de niveau pro**, qui se distingue sur quelques points-clés (intégration `~/.ssh/config`, sync auto-hébergeable).
 
 ### Objectifs fonctionnels (v1.0)
 - Gérer une liste de serveurs (groupes, tags, recherche)
@@ -45,7 +45,7 @@ Un client SSH/SFTP desktop **léger, rapide, multiplateforme**, qui couvre le qu
 
 ### Public cible
 - Développeurs et sysadmins qui gèrent 5 à 100 serveurs
-- Utilisateurs actuels de Termius / Royal TSX / MobaXterm cherchant une alternative gratuite
+- Utilisateurs d'autres clients SSH GUI cherchant une alternative gratuite et local-first
 - Power users du terminal qui veulent une GUI sans perdre la flexibilité
 
 ---
@@ -712,6 +712,129 @@ Utiliser **`ts-rs`** côté Rust pour générer automatiquement les types TypeSc
 
 ---
 
+# Phase 6 — Site, monétisation & business
+
+> **⚠️ Décision produit (2026-05) — split lean.** Après réflexion sur le
+> positionnement, la Phase 6 est scindée en deux :
+> - **Phase 6 « Launch » (légère, ~2 j, 0–10 €/an)** = juste ce qu'il faut
+>   pour exister publiquement et laisser le marché voter : licence FSL,
+>   README de lancement, landing page (Astro/Cloudflare Pages), docs en ligne
+>   (Starlight), GitHub Sponsors, post de lancement. → tickets P6-T01, T02, T03
+>   + licence/readme/sponsors.
+> - **Phase 7 « Monétisation » (conditionnelle)** = tout le reste (SaaS sync
+>   managé, Stripe, tiers Pro/Enterprise, SSO, backend sécurisé, RGPD, email,
+>   analytics, support structuré). **Débloquée UNIQUEMENT si la traction la
+>   justifie** (stars + demande explicite de team/managé). Le cœur
+>   SSH/SFTP/snippets/sync-local-et-Git reste **gratuit et ouvert** à vie.
+>
+> Licence retenue : **FSL-1.1-MIT** (source-available, anti-revente concurrente,
+> bascule MIT après 2 ans). Voir `LICENSE.md`.
+
+**Objectif (Launch)** : exister en tant que produit. Site, canal de download
+propre, doc en ligne, bouton sponsors. Pas de business à opérer.
+
+**Estimation (Launch)** : ~2 jours. Le bloc monétisation (ci-dessous) est parké
+en Phase 7.
+
+### Tickets
+
+#### P6-T01 — Landing page (site marketing)
+- Site statique en Astro ou Next.js, hébergé sur Vercel/Cloudflare Pages, domaine custom (ex. `lynk.app`)
+- Sections : hero (vidéo/GIF de démo), feature grid (SSH, SFTP, snippets, identities, sync), download buttons par OS, screenshots, FAQ, lien GitHub
+- Responsive, dark mode, SEO de base (Open Graph, sitemap, robots.txt)
+- **DoD** : `https://lynk.app` répond, propose les builds, lien direct vers les `.msi/.dmg/.AppImage` GitHub releases
+
+#### P6-T02 — Docs en ligne
+- Migration de `docs/` (P5-T09) vers un site docs (Astro Starlight, Docusaurus ou VitePress)
+- Search intégrée, table des matières, multi-langue (FR + EN)
+- Hébergement sur le sous-domaine `docs.lynk.app`
+- **DoD** : la doc est en ligne, indexée Google, recherche fonctionne
+
+#### P6-T03 — Téléchargement intelligent (autodetect OS)
+- Bouton "Download" qui détecte l'OS du visiteur et propose le bon installeur d'abord
+- Fallback "Other platforms" listant tous les artefacts
+- Counter de téléchargements (analytics simple, GDPR-friendly genre Plausible)
+- **DoD** : visite Windows → `.msi` proposé en premier ; visite Mac → `.dmg`
+
+#### P6-T04 — Tier gratuit vs Pro : positionnement
+- Décision produit : **toutes les features SSH/SFTP/snippets/identities/local sync restent gratuites** (sinon on perd la diff avec OpenSSH+tmux)
+- Ce qu'on peut monétiser sans frustrer les users solo :
+  - **Pro Sync** : sync managée (notre serveur), team sharing de hosts/snippets, audit log centralisé
+  - **Pro Identity** : SSO entreprise (SAML/OIDC), provisionning des hosts via API
+  - **Pro Support** : SLA, support email prioritaire
+  - **Self-hosted Enterprise** : licence + image Docker du serveur sync, déployable on-prem
+- **DoD** : une page `/pricing` claire avec 3 tiers (Free, Pro, Enterprise)
+
+#### P6-T05 — Backend SaaS minimal (Pro Sync)
+- API REST + Postgres : `users`, `vaults` (vault.enc par device), `teams`, `shares`
+- Auth : magic link email (Resend / Postmark) ou GitHub OAuth
+- Stockage des `vault.enc` côté serveur — **zero-knowledge** : on stocke uniquement le blob chiffré, on n'a jamais le password
+- Endpoint `PUT /vault` (push), `GET /vault` (pull), `POST /teams/:id/share`
+- **DoD** : tu peux push depuis l'app, GET depuis ailleurs, on n'a jamais la clé
+
+#### P6-T06 — Paiement (Stripe)
+- Intégration Stripe Checkout : abonnement mensuel/annuel
+- Webhooks pour gérer les changements d'abonnement (active, past_due, canceled)
+- Customer portal pour gérer facturation, changer carte, annuler
+- TVA EU (Stripe Tax) gérée automatiquement
+- **DoD** : tu peux payer le tier Pro et il s'active dans la minute
+
+#### P6-T07 — Activation Pro côté app
+- L'app appelle `/me` au login → reçoit son tier (free/pro/enterprise) signé JWT
+- Features Pro gated derrière un check `useTier()` côté front
+- En mode offline : on cache le tier 30 jours après le dernier check OK
+- Bouton "Upgrade" dans Settings si free → ouvre le portail web
+- **DoD** : un compte free ne voit pas les features Pro ; un compte Pro les voit
+
+#### P6-T08 — Sécurisation du backend
+- Rate limiting (Cloudflare ou middleware app) : 60 req/min/IP, 1000 req/h/user
+- WAF (Cloudflare) : bloque les patterns malveillants connus
+- Secrets stockés dans un vault (1Password Connect, Doppler, ou variables Vercel chiffrées)
+- Pas de log des `vault.enc` (ils sont chiffrés mais autant ne pas les laisser traîner dans des logs)
+- Backups Postgres chiffrés, restore testé une fois par mois
+- Audit log interne (qui a accédé à quel `vault.enc`, IP, user-agent) pour détecter abus
+- **DoD** : un pentest basique (OWASP top 10) passe ; les backups restaurent
+
+#### P6-T09 — Conformité légale
+- ToS + Privacy Policy + DPA générés (Termly, Iubenda, ou rédaction custom)
+- Bannière cookies si analytics non-GDPR-friendly (idéalement, on évite avec Plausible/Umami)
+- DSAR endpoint (export/delete data sur demande user) — requis RGPD
+- Page `/security` listant les pratiques (chiffrement, certifs, audits)
+- **DoD** : un utilisateur EU peut demander son export + suppression complètes
+
+#### P6-T10 — Email transactionnel
+- Setup Postmark ou Resend pour : magic link, welcome, payment receipt, security alert (new device)
+- Templates HTML + plain text
+- SPF/DKIM/DMARC configurés sur le domaine
+- **DoD** : les emails arrivent en inbox (pas spam) sur Gmail, Outlook, Proton
+
+#### P6-T11 — Analytics produit (privacy-friendly)
+- Plausible ou Umami self-hosted (ou Vercel Analytics)
+- Track : pages vues, conversions free→pro, churn, features les plus utilisées (côté app via opt-in P5-T08)
+- Dashboard interne accessible aux contributeurs
+- **DoD** : on sait combien de DAU, MRR, et où viennent les users
+
+#### P6-T12 — Support & community
+- Discord ou Matrix room publique
+- GitHub Discussions activé (Q&A, idées, bugs)
+- Email `support@lynk.app` → routé vers ticket system (Plain, HelpScout, ou simple inbox)
+- Page Status (statuspage.io ou similaire) pour les incidents du backend SaaS
+- **DoD** : un user qui a un souci a 3 canaux pour demander de l'aide
+
+#### P6-T13 — Sponsorship & alternatives au paiement
+- GitHub Sponsors activé
+- Open Collective pour les dons one-off
+- Tier "Free for OSS maintainers" et "Free for students" (vérification basique)
+- **DoD** : un mainteneur OSS peut demander un Pro gratuit, un sponsor peut soutenir le projet sans s'abonner
+
+#### P6-T14 — Mesure & itération
+- Setup d'un funnel : visite landing → download → first session → first sync setup → upgrade
+- Identifier les drop-off, prioriser les améliorations UX en conséquence
+- Retroplanning trimestriel : qu'est-ce qu'on shipping le prochain trimestre ?
+- **DoD** : on a un dashboard funnel et un roadmap public (GitHub Projects)
+
+---
+
 ## 10. Hors scope explicite
 
 Pour cadrer le projet et éviter le scope creep, les éléments suivants sont **explicitement exclus** de la v1.0 :
@@ -720,7 +843,7 @@ Pour cadrer le projet et éviter le scope creep, les éléments suivants sont **
 - **FTP non sécurisé** : seul SFTP est supporté
 - **Mosh** : intéressant mais protocole complexe
 - **X11 forwarding** : niche, ajoutable en v1.1 si demande
-- **Collaboration temps réel** (style Termius Pro Team) : énorme scope produit
+- **Collaboration temps réel** (sessions partagées multi-utilisateurs) : énorme scope produit
 - **Mobile companion app** : non, c'est un projet desktop
 - **AI inline (suggestions de commandes)** : non, focus sur les bases solides
 - **Plugins / extensions tierces** : pas avant que l'app soit stable
@@ -747,11 +870,13 @@ Pour cadrer le projet et éviter le scope creep, les éléments suivants sont **
 | Phase | Objectif | Tickets | Estim. | Statut |
 |-------|----------|---------|--------|--------|
 | 1 | Fondations + SSH minimal | 20 | 3–5 j | ✅ |
-| 2 | Multi-tabs + SFTP + import config | 18 | 3 j | ✅ (T18 E2E reporté, tests manuels OK) |
-| 3 | Sécurité + SSH avancé | 15 | 2–3 j | 🟡 P3-T06 (keychain) déjà fait |
-| 4 | UX power user | 12 | 2 j | 🟡 P4-T11 (Settings) partiellement fait |
-| 5 | Sync + release | 10 | 2 j | ⏳ |
-| **Total** | **v1.0** | **~75** | **~12–15 j** | |
+| 2 | Multi-tabs + SFTP + import config | 18 | 3 j | ✅ T01–T17 (T18 E2E reporté, tests manuels OK) |
+| 3 | Sécurité + SSH avancé | 15 | 2–3 j | ✅ T01–T15 (note : "master password" rebrandé en PIN, lock ferme aussi les port forwards) |
+| 4 | UX power user | 12 | 2 j | ✅ T01–T12 livrés (snippets+palette+historique, broadcast multi-pane, identities, pré/post scripts, raccourcis configurables, URLs cliquables, recherche buffer, notifications BEL, Settings 9 sections, Quick Connect via palette) |
+| 5 | Sync + release | 10 | 2 j | ✅ T01–T09 (T10 release v1.0 = étape manuelle, cf. docs/RELEASING.md). Export/import .tmv chiffré, sync Git auto, updater Tauri, packaging GH Actions, About, docs |
+| 6 | Launch (site + docs + licence + sponsors) | ~6 | ~2 j | 🟡 Licence FSL ✅, README launch ✅. Reste : landing, docs en ligne, sponsors |
+| 7 | Monétisation (conditionnelle) | ~10 | ~3–4 j | ⏸️ parké — débloqué seulement si traction |
+| **Total** | **v1.0 + launch** | **~85** | **~14–17 j** | |
 
 Note : ces estimations supposent un travail à plein temps. Avec des agents parallèles, beaucoup de tickets indépendants au sein d'une même phase peuvent être exécutés en parallèle (notamment dans les phases 1, 3 et 4).
 
@@ -759,9 +884,10 @@ Note : ces estimations supposent un travail à plein temps. Avec des agents para
 
 Au cours du dev, plusieurs ajouts UX non listés dans la roadmap initiale ont été livrés :
 
+- **Terminal local** : onglet "Local" pour ouvrir un shell sur la machine — `portable-pty` côté backend (ConPTY sur Windows, openpty ailleurs), même protocole d'events que les sessions SSH donc le composant `TerminalView` est partagé
 - **Custom window chrome** : Mica sur Windows 11 21H2+, fallback DwmSetWindowAttribute caption color sur Win 10
 - **Command palette** (`Ctrl+K`) avec fuzzy search sur hosts + actions globales — équivalent simplifié du P4-T12 (Quick Connect)
-- **Workspace homepage** : grille de hosts cards quand pas d'onglet — équivalent du Termius "Hosts overview"
+- **Workspace homepage** : grille de hosts cards quand pas d'onglet — équivalent d'un écran "Hosts overview"
 - **Toasts globaux** via `sonner` sur toutes les actions backend (loading → success/error) avec theme dark/light auto
 - **Thèmes app vs terminal séparés** : preview live, padding interne, Catppuccin Mocha/Latte ajoutés
 - **Copy/Cut/Paste SFTP** : clipboard partagé entre les deux panes avec menu contextuel sur zone vide
