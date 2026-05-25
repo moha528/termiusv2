@@ -4,6 +4,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versionnemen
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-05-25
+
+Première release publique de **Lynk Client** — client SSH/SFTP desktop libre, local-first et chiffré.
+
 ### Phase 4 — UX power user (passe 2)
 
 - **P4-T04** Broadcast input multi-pane :
