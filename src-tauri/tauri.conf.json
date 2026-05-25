@@ -62,7 +62,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://github.com/moha528/termiusv2/releases/latest/download/latest.json"],
+      "endpoints": ["https://github.com/moha528/lynk/releases/latest/download/latest.json"],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRDMzE0OEVDRDdCN0JBM0UKUldRK3VyZlg3RWd4VE54aVNBUmJ0aVRqSFlRQm4yTzc1WDE4NzcvVjJHQWZvb043TE9FcVdsU2gK"
     }
   }

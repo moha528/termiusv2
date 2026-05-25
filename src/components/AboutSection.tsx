@@ -8,7 +8,7 @@ import { checkForUpdate, installUpdate } from "@/lib/updater";
 import { cn } from "@/lib/utils";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 
-const REPO_URL = "https://github.com/moha528/termiusv2";
+const REPO_URL = "https://github.com/moha528/lynk";
 
 /**
  * Settings → About (P5-T08).

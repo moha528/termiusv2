@@ -3,7 +3,7 @@
 ## 1. Installer Lynk Client
 
 Télécharge l'installeur pour ton OS depuis la
-[page des releases](https://github.com/moha528/termiusv2/releases/latest) :
+[page des releases](https://github.com/moha528/lynk/releases/latest) :
 
 | OS | Fichier |
 | --- | --- |

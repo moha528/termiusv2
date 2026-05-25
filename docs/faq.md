@@ -11,7 +11,7 @@ SmartScreen affiche donc un avertissement. Pour installer :
 2. Clique **Exécuter quand même**
 
 C'est sans risque : le binaire vient de la
-[release GitHub officielle](https://github.com/moha528/termiusv2/releases).
+[release GitHub officielle](https://github.com/moha528/lynk/releases).
 La signature de code sera ajoutée dans une version ultérieure.
 
 ### macOS : « Application non vérifiée »

@@ -33,7 +33,7 @@ service tiers pour les retrouver sur tes autres machines.
 ## Télécharger
 
 Installeurs pour Windows, macOS (Intel + Apple Silicon) et Linux sur la
-[**page des releases**](https://github.com/moha528/termiusv2/releases/latest).
+[**page des releases**](https://github.com/moha528/lynk/releases/latest).
 
 > Les installeurs ne sont pas encore signés (certificats payants) : ton OS
 > peut afficher un avertissement à l'installation. Deux clics pour le
@@ -118,8 +118,8 @@ et les [dépendances système Tauri](https://tauri.app/start/prerequisites/) de 
 - Windows : Visual Studio Build Tools (workload C++ + Windows SDK)
 
 ```bash
-git clone https://github.com/moha528/termiusv2.git
-cd termiusv2
+git clone https://github.com/moha528/lynk.git
+cd lynk
 pnpm install
 pnpm tauri dev
 ```
