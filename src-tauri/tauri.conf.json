@@ -39,7 +39,26 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "copyright": "© 2026 Lynk Client contributors",
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "installMode": "both",
+        "languages": ["English", "French"],
+        "displayLanguageSelector": false
+      }
+    },
+    "macOS": {
+      "dmg": {
+        "background": "installer/dmg-background.png",
+        "windowSize": { "width": 660, "height": 400 },
+        "appPosition": { "x": 175, "y": 205 },
+        "applicationFolderPosition": { "x": 485, "y": 205 }
+      }
+    }
   },
   "plugins": {
     "updater": {
