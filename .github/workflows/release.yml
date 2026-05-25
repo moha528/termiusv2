@@ -29,6 +29,10 @@ on:
 jobs:
   build:
     name: Build (${{ matrix.platform }})
+    # Requis pour que tauri-action puisse créer la Release et y attacher les
+    # installeurs/`latest.json` (le GITHUB_TOKEN est read-only par défaut).
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
