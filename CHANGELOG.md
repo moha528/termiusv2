@@ -4,6 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versionnemen
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-05-25
+
+### Corrigé
+- **Checksums de migration déterministes** : `.gitattributes` force les fichiers `.sql` (et tout le texte) en LF. Sans ça, la variation CRLF/LF entre builds/plateformes faisait échouer sqlx (« migration has been modified ») au lancement après une mise à jour. Les installs à froid n'étaient pas affectées.
+
 ## [1.0.0] - 2026-05-25
 
 Première release publique de **Lynk Client** — client SSH/SFTP desktop libre, local-first et chiffré.
