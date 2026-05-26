@@ -4,7 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
-import { Terminal } from "@xterm/xterm";
+import { type ILink, Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -124,6 +124,41 @@ export function TerminalView({
         openUrl(uri).catch((e) => console.warn("openUrl:", e));
       }),
     );
+    // Adresses IPv4 (+ port optionnel) cliquables → Ctrl/Cmd+clic ouvre
+    // http://<ip>[:port] dans le navigateur (0.0.0.0 → localhost).
+    term.registerLinkProvider({
+      provideLinks(line, callback) {
+        const text = term.buffer.active.getLine(line - 1)?.translateToString(true) ?? "";
+        const links: ILink[] = [];
+        const re = /\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:\d{2,5})?\b/g;
+        let m: RegExpExecArray | null = re.exec(text);
+        while (m !== null) {
+          if ([m[1], m[2], m[3], m[4]].every((o) => Number(o) <= 255)) {
+            const full = m[0];
+            const ip = `${m[1]}.${m[2]}.${m[3]}.${m[4]}`;
+            const port = m[5] ?? "";
+            const hostPart = ip === "0.0.0.0" ? "localhost" : ip;
+            const url = `http://${hostPart}${port}`;
+            const startX = m.index + 1;
+            links.push({
+              text: full,
+              range: {
+                start: { x: startX, y: line },
+                end: { x: startX + full.length - 1, y: line },
+              },
+              activate: (event) => {
+                if (event.ctrlKey || event.metaKey) {
+                  openUrl(url).catch((e) => console.warn("openUrl:", e));
+                }
+              },
+            });
+          }
+          m = re.exec(text);
+        }
+        callback(links);
+      },
+    });
+
     try {
       term.loadAddon(new WebglAddon());
     } catch (e) {

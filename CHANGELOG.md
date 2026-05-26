@@ -4,6 +4,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versionnemen
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-05-26
+
+### Ajouté
+- **Adresses IP cliquables** dans le terminal : Ctrl/Cmd+clic ouvre `http://<ip>[:port]` (0.0.0.0 → localhost).
+- **Reconnexion automatique** des sessions SSH : keepalive (paquet toutes les 30 s pour éviter les coupures inactives) + reconnexion auto avec essais espacés (1/2/4/8 s) sur déconnexion inattendue. Désactivable dans Réglages › Fichiers.
+
 ## [1.0.4] - 2026-05-26
 
 ### Ajouté

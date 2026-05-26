@@ -190,6 +190,7 @@ function SectionContent({ section }: { section: SectionId }) {
   const terminalFontFamily = useSettingsStore((s) => s.terminalFontFamily);
   const showHidden = useSettingsStore((s) => s.showHiddenFiles);
   const autoRestore = useSettingsStore((s) => s.autoRestoreSessions);
+  const autoReconnect = useSettingsStore((s) => s.autoReconnect);
   const historyScope = useSettingsStore((s) => s.commandHistoryScope);
   const bellNotifications = useSettingsStore((s) => s.bellNotifications);
   const closeBehavior = useSettingsStore((s) => s.closeBehavior);
@@ -282,6 +283,12 @@ function SectionContent({ section }: { section: SectionId }) {
             description="Au démarrage, rouvrir les onglets de la session précédente sans demander."
             checked={autoRestore === true}
             onChange={(v) => setSetting("autoRestoreSessions", v ? true : null)}
+          />
+          <Toggle
+            label="Reconnexion automatique"
+            description="Rétablit une session SSH qui saute (réseau, veille, timeout), avec quelques essais espacés."
+            checked={autoReconnect}
+            onChange={(v) => setSetting("autoReconnect", v)}
           />
         </div>
       );

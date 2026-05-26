@@ -1,7 +1,9 @@
 import { create } from "zustand";
 
 import type { Host } from "@/lib/bindings/Host";
+import { keyvaultApi } from "@/lib/keyvault";
 import { localTermApi, sessionsApi } from "@/lib/sessions";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 /**
  * State of an individual session tab.
@@ -350,6 +352,8 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     if (!tab) return;
     const sessionId = tab.status.kind === "open" ? tab.status.sessionId : null;
     patch(set, get, id, { status: { kind: "closed", sessionId, reason } });
+    // Reconnexion automatique (SSH) sur déconnexion inattendue.
+    void maybeAutoReconnect(get, id);
   },
 
   restoreClosedTab(host, type, title) {
@@ -454,4 +458,41 @@ function patch(
   set({
     tabs: get().tabs.map((t) => (t.id === id ? { ...t, ...fields } : t)),
   });
+}
+
+/** Onglets en cours de reconnexion automatique (évite les boucles parallèles). */
+const autoReconnecting = new Set<string>();
+
+/**
+ * Reconnexion automatique avec backoff après une déconnexion inattendue.
+ * SSH uniquement, si le réglage est actif. S'arrête dès que l'utilisateur
+ * agit (onglet fermé, ou statut redevenu connecting/open via une reconnexion
+ * manuelle réussie) ou si le réglage est désactivé.
+ */
+async function maybeAutoReconnect(get: () => SessionsState, tabId: string) {
+  if (autoReconnecting.has(tabId)) return;
+  if (!useSettingsStore.getState().autoReconnect) return;
+  const tab = get().tabs.find((t) => t.id === tabId);
+  if (!tab || tab.type !== "ssh") return;
+
+  autoReconnecting.add(tabId);
+  try {
+    // Mot de passe mémorisé (vide → tentative par clé SSH / agent).
+    const password = (await keyvaultApi.get(tab.host.id)) ?? "";
+    const delays = [1000, 2000, 4000, 8000];
+    for (const delay of delays) {
+      await new Promise((r) => setTimeout(r, delay));
+      const current = get().tabs.find((t) => t.id === tabId);
+      if (!current || current.status.kind !== "closed") return;
+      if (!useSettingsStore.getState().autoReconnect) return;
+      try {
+        await get().reconnect(tabId, password);
+        return; // reconnecté
+      } catch {
+        // échec → nouvelle tentative avec le délai suivant
+      }
+    }
+  } finally {
+    autoReconnecting.delete(tabId);
+  }
 }

@@ -489,7 +489,13 @@ fn build_client(
     Arc<Mutex<Option<HandlerOutcome>>>,
     ForwardedRoutes,
 ) {
-    let config = Arc::new(client::Config::default());
+    let mut config = client::Config::default();
+    // Keepalive : un paquet toutes les 30 s pour éviter que les connexions
+    // inactives soient coupées (NAT/firewall/timeout serveur). Après 3
+    // keepalives sans réponse, russh déconnecte → l'UI tente une reconnexion.
+    config.keepalive_interval = Some(std::time::Duration::from_secs(30));
+    config.keepalive_max = 3;
+    let config = Arc::new(config);
     let outcome = Arc::new(Mutex::new(None::<HandlerOutcome>));
     let forwarded_routes = Arc::new(Mutex::new(HashMap::new()));
     let handler = Handler {

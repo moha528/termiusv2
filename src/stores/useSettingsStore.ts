@@ -76,6 +76,11 @@ type Settings = {
    * saisie l'atteint. `null` = inconnue (saisie validée manuellement via Entrée).
    */
   pinLength: number | null;
+  /**
+   * Tente de rétablir automatiquement une session SSH qui saute (réseau,
+   * veille, timeout serveur), avec quelques essais espacés.
+   */
+  autoReconnect: boolean;
 };
 
 const DEFAULTS: Settings = {
@@ -97,6 +102,7 @@ const DEFAULTS: Settings = {
   lastSeenVersion: null,
   closeBehavior: "ask",
   pinLength: null,
+  autoReconnect: true,
 };
 
 type SettingsState = Settings & {
@@ -124,6 +130,7 @@ const KEY_MAP: Record<keyof Settings, string> = {
   lastSeenVersion: "last_seen_version",
   closeBehavior: "close_behavior",
   pinLength: "pin_length",
+  autoReconnect: "auto_reconnect",
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({

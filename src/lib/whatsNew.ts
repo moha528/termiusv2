@@ -11,6 +11,16 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: "1.0.5",
+    date: "2026-05-26",
+    title: "Connexions qui tiennent",
+    items: [
+      "Reconnexion automatique : si ta session SSH saute (réseau, veille, timeout), Lynk la rétablit tout seul.",
+      "Keepalive intégré pour éviter les coupures de connexions inactives.",
+      "Adresses IP cliquables dans le terminal — Ctrl+clic pour ouvrir dans le navigateur.",
+    ],
+  },
+  {
     version: "1.0.4",
     date: "2026-05-26",
     title: "Confort au quotidien",
