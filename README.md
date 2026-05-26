@@ -188,3 +188,10 @@ Concrètement :
 C'est le modèle de Sentry : transparence totale de l'open source, sans laisser
 quiconque commercialiser le projet à la place de ses auteurs. Si un jour le
 projet est abandonné, la clause MIT-après-2-ans garantit qu'il reste libre.
+
+## Soutenir
+
+Lynk Client est gratuit et le restera. Si l'app t'est utile, tu peux m'offrir
+un café ☕ — ça soutient le développement, sans pression.
+
+[![Offrir un café](https://img.shields.io/badge/Offrir%20un%20caf%C3%A9-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/mtseckdev)

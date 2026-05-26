@@ -1,6 +1,6 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Code2, Loader2, RefreshCw } from "lucide-react";
+import { Code2, Coffee, Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { withToast } from "@/lib/feedback";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 
 const REPO_URL = "https://github.com/moha528/lynk";
+const DONATE_URL = "https://buymeacoffee.com/mtseckdev";
 
 /**
  * Settings → About (P5-T08).
@@ -82,6 +83,10 @@ export function AboutSection() {
         </LinkButton>
         <LinkButton onClick={() => void openUrl(`${REPO_URL}/issues/new`)}>
           Signaler un bug
+        </LinkButton>
+        <LinkButton onClick={() => void openUrl(DONATE_URL)}>
+          <Coffee className="h-3.5 w-3.5" />
+          Offrir un café
         </LinkButton>
       </div>
 

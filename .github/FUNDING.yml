@@ -1,3 +1,2 @@
-# Affiche le bouton « Sponsor » sur le repo. Active GitHub Sponsors sur ton
-# compte (github.com/sponsors) pour que le lien soit fonctionnel.
-github: [moha528]
+# Affiche le bouton « Sponsor » en haut du repo, pointant vers Buy Me a Coffee.
+buy_me_a_coffee: mtseckdev
