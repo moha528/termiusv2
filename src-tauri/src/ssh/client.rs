@@ -480,6 +480,10 @@ async fn connect_local_agent() -> Result<tokio::net::windows::named_pipe::NamedP
 
 /// Build the `(Config, Handler, outcome_slot)` triple shared by direct and
 /// bastion-tunneled connections.
+// `client::Config` est `#[non_exhaustive]` : on ne peut pas l'initialiser via un
+// struct literal `..Default::default()` (ce que clippy suggérerait), d'où
+// l'assignation des champs après `default()` + l'autorisation du lint.
+#[allow(clippy::field_reassign_with_default)]
 fn build_client(
     pool: &DbPool,
     params: &ConnectParams<'_>,
