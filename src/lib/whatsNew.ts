@@ -18,6 +18,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
       "Reconnexion automatique : si ta session SSH saute (réseau, veille, timeout), Lynk la rétablit tout seul.",
       "Keepalive intégré pour éviter les coupures de connexions inactives.",
       "Adresses IP cliquables dans le terminal — Ctrl+clic pour ouvrir dans le navigateur.",
+      "Le split d'écran marche aussi sur les serveurs connectés par clé SSH (plus besoin d'un mot de passe enregistré).",
     ],
   },
   {

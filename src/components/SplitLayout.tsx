@@ -292,12 +292,11 @@ function PaneShell({
           });
           return;
         }
-        // SSH split: reuse the keychain password silently if available.
-        const pwd = await keyvaultApi.get(tab.host.id);
-        if (!pwd) {
-          console.warn("split needs a saved password");
-          return;
-        }
+        // SSH split : réutilise le mot de passe du keychain s'il existe,
+        // sinon chaîne vide → le backend tente la clé SSH / l'agent, exactement
+        // comme à la connexion initiale (sinon les hosts en auth par clé ne
+        // peuvent pas être splittés).
+        const pwd = (await keyvaultApi.get(tab.host.id)) ?? "";
         await withToast(splitPane(tabId, sessionId, direction, pwd), {
           loading: `Connexion d'un nouveau pane à ${tab.host.label}…`,
           success: "Pane connecté",

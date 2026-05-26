@@ -384,13 +384,12 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     patch(set, get, tabId, { layout: optimisticLayout });
 
     try {
+      // Mot de passe vide → le backend tente la clé SSH / l'agent (comme à la
+      // connexion initiale), donc les hosts en auth par clé peuvent splitter.
       const newSessionId =
         tab.type === "local"
           ? await localTermApi.open()
-          : await (async () => {
-              if (!password) throw new Error("password required for SSH split");
-              return sessionsApi.open(tab.host.id, password);
-            })();
+          : await sessionsApi.open(tab.host.id, password ?? "");
       const after = get().tabs.find((t) => t.id === tabId);
       if (!after?.layout) return;
       patch(set, get, tabId, {

@@ -10,6 +10,9 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versionnemen
 - **Adresses IP cliquables** dans le terminal : Ctrl/Cmd+clic ouvre `http://<ip>[:port]` (0.0.0.0 → localhost).
 - **Reconnexion automatique** des sessions SSH : keepalive (paquet toutes les 30 s pour éviter les coupures inactives) + reconnexion auto avec essais espacés (1/2/4/8 s) sur déconnexion inattendue. Désactivable dans Réglages › Fichiers.
 
+### Corrigé
+- **Split d'un terminal SSH connecté par clé** (sans mot de passe enregistré) : le split échouait en silence — il exigeait un mot de passe sauvegardé. Il tente désormais la clé/agent comme à la connexion initiale.
+
 ## [1.0.4] - 2026-05-26
 
 ### Ajouté
