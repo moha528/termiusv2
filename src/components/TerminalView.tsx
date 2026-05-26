@@ -58,9 +58,12 @@ export function TerminalView({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
   const broadcastRef = useRef(broadcast);
   broadcastRef.current = broadcast;
   const themeId = useSettingsStore((s) => s.terminalTheme);
+  const fontSize = useSettingsStore((s) => s.terminalFontSize);
+  const fontFamily = useSettingsStore((s) => s.terminalFontFamily);
   const api = kind === "local" ? localTermApi : sessionsApi;
   const searchOpen = useTerminalSearchStore((s) => s.openFor === sessionId);
   const closeSearch = useTerminalSearchStore((s) => s.close);
@@ -88,8 +91,8 @@ export function TerminalView({
     if (!hostRef.current) return;
 
     const term = new Terminal({
-      fontFamily: '"JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace',
-      fontSize: 13,
+      fontFamily: useSettingsStore.getState().terminalFontFamily,
+      fontSize: useSettingsStore.getState().terminalFontSize,
       fontWeight: 400,
       fontWeightBold: 600,
       letterSpacing: 0,
@@ -107,6 +110,7 @@ export function TerminalView({
 
     const fit = new FitAddon();
     term.loadAddon(fit);
+    fitAddonRef.current = fit;
     const search = new SearchAddon();
     term.loadAddon(search);
     searchAddonRef.current = search;
@@ -190,6 +194,24 @@ export function TerminalView({
     hostRef.current.addEventListener("focusin", onFocus, true);
     hostRef.current.addEventListener("mousedown", onFocus, true);
 
+    // Clic droit : copie la sélection si présente, sinon colle le presse-papiers.
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const selection = term.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection).catch(() => {});
+        term.clearSelection();
+      } else {
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            if (text) api.sendInput(sessionId, text).catch((err) => console.warn("paste:", err));
+          })
+          .catch(() => {});
+      }
+    };
+    hostRef.current.addEventListener("contextmenu", onContextMenu);
+
     const ro = new ResizeObserver(() => {
       fit.fit();
       const { cols, rows } = term;
@@ -206,11 +228,13 @@ export function TerminalView({
       if (host) {
         host.removeEventListener("focusin", onFocus, true);
         host.removeEventListener("mousedown", onFocus, true);
+        host.removeEventListener("contextmenu", onContextMenu);
       }
       for (const un of unlisteners) un();
       term.dispose();
       termRef.current = null;
       searchAddonRef.current = null;
+      fitAddonRef.current = null;
     };
   }, [sessionId, onClosed, hostId, hostLabel]);
 
@@ -220,6 +244,16 @@ export function TerminalView({
       termRef.current.options.theme = getTheme(themeId);
     }
   }, [themeId]);
+
+  // Apply font size / family in place + refit (preserves scrollback).
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    term.options.fontSize = fontSize;
+    term.options.fontFamily = fontFamily;
+    fitAddonRef.current?.fit();
+    api.resize(sessionId, term.cols, term.rows).catch(() => {});
+  }, [fontSize, fontFamily, sessionId, api]);
 
   const bg = getTheme(themeId).background ?? "transparent";
 

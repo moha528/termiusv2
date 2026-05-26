@@ -1,6 +1,6 @@
 [package]
 name = "lynk"
-version = "1.0.3"
+version = "1.0.4"
 description = "Client SSH/SFTP desktop libre — local-first, chiffré, sans cloud"
 authors = ["Lynk Client contributors"]
 edition = "2021"

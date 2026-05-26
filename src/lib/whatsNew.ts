@@ -11,6 +11,16 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: "1.0.4",
+    date: "2026-05-26",
+    title: "Confort au quotidien",
+    items: [
+      "Le PIN se valide tout seul dès que tu as saisi tous les chiffres — plus besoin d'appuyer sur Entrée.",
+      "Clic droit dans le terminal : copie la sélection, ou colle le presse-papiers.",
+      "Taille et police du terminal réglables (Réglages › Terminal).",
+    ],
+  },
+  {
     version: "1.0.3",
     date: "2026-05-26",
     title: "Zone de notification",

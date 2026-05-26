@@ -2,6 +2,7 @@ import { Check, Lock, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useVaultStore } from "@/stores/useVaultStore";
 
 type Status = "idle" | "verifying" | "success" | "error";
@@ -30,6 +31,8 @@ const MAX_PIN = 12;
 export function UnlockOverlay() {
   const locked = useVaultStore((s) => s.locked);
   const unlock = useVaultStore((s) => s.unlock);
+  const pinLength = useSettingsStore((s) => s.pinLength);
+  const setSetting = useSettingsStore((s) => s.set);
   const [pin, setPin] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +68,9 @@ export function UnlockOverlay() {
     try {
       const ok = await unlock(value);
       if (ok) {
+        // Mémorise la longueur du PIN pour l'auto-validation des prochaines
+        // fois (backfill pour les PIN configurés avant cette fonctionnalité).
+        void setSetting("pinLength", value.length);
         setStatus("success");
         // Let the success animation breathe a bit before the overlay disappears.
         await new Promise((r) => setTimeout(r, 350));
@@ -191,6 +197,10 @@ export function UnlockOverlay() {
               setPin(v);
               if (error) setError(null);
               if (status === "error") setStatus("idle");
+              // Auto-validation dès que la longueur connue du PIN est atteinte.
+              if (pinLength != null && pinLength >= MIN_PIN && v.length === pinLength) {
+                void submit(v);
+              }
             }}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}

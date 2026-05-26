@@ -16,6 +16,10 @@ type Settings = {
   appTheme: ThemeId;
   /** Theme of the embedded xterm.js terminals. Independent from `appTheme`. */
   terminalTheme: ThemeId;
+  /** Taille de police des terminaux (px). */
+  terminalFontSize: number;
+  /** Pile de polices CSS des terminaux. */
+  terminalFontFamily: string;
   lastActiveTabId: string | null;
   windowWidth: number | null;
   windowHeight: number | null;
@@ -67,12 +71,19 @@ type Settings = {
    *  - "quit": quitter l'application
    */
   closeBehavior: "ask" | "tray" | "minimize" | "quit";
+  /**
+   * Longueur du PIN configuré, pour auto-valider au déverrouillage dès que la
+   * saisie l'atteint. `null` = inconnue (saisie validée manuellement via Entrée).
+   */
+  pinLength: number | null;
 };
 
 const DEFAULTS: Settings = {
   sidebarWidth: 260,
   appTheme: DEFAULT_THEME,
   terminalTheme: DEFAULT_THEME,
+  terminalFontSize: 13,
+  terminalFontFamily: '"JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace',
   lastActiveTabId: null,
   windowWidth: null,
   windowHeight: null,
@@ -85,6 +96,7 @@ const DEFAULTS: Settings = {
   crashReportingOptIn: false,
   lastSeenVersion: null,
   closeBehavior: "ask",
+  pinLength: null,
 };
 
 type SettingsState = Settings & {
@@ -97,6 +109,8 @@ const KEY_MAP: Record<keyof Settings, string> = {
   sidebarWidth: "sidebar_width",
   appTheme: "app_theme",
   terminalTheme: "terminal_theme",
+  terminalFontSize: "terminal_font_size",
+  terminalFontFamily: "terminal_font_family",
   lastActiveTabId: "last_active_tab_id",
   windowWidth: "window_width",
   windowHeight: "window_height",
@@ -109,6 +123,7 @@ const KEY_MAP: Record<keyof Settings, string> = {
   crashReportingOptIn: "crash_reporting_opt_in",
   lastSeenVersion: "last_seen_version",
   closeBehavior: "close_behavior",
+  pinLength: "pin_length",
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({

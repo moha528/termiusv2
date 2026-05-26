@@ -4,6 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versionnemen
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-05-26
+
+### Ajouté
+- **PIN auto-validé** : le déverrouillage se lance dès que la longueur du PIN est atteinte (plus besoin d'Entrée). La longueur est mémorisée (et backfillée au 1er déverrouillage pour les PIN existants).
+- **Clic droit dans le terminal** : copie la sélection si présente, sinon colle le presse-papiers.
+- **Taille et police du terminal configurables** (Réglages › Terminal) — appliquées à chaud, scrollback préservé.
+
 ## [1.0.3] - 2026-05-26
 
 ### Ajouté

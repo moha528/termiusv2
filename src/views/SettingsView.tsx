@@ -69,6 +69,22 @@ const NAV: NavEntry[] = [
   { id: "about", label: "À propos", icon: <Info className="h-3.5 w-3.5" /> },
 ];
 
+const TERMINAL_FONTS = [
+  {
+    label: "JetBrains Mono",
+    value: '"JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace',
+  },
+  { label: "Cascadia Code", value: '"Cascadia Code", "Cascadia Mono", Consolas, monospace' },
+  { label: "Fira Code", value: '"Fira Code", "JetBrains Mono", Consolas, monospace' },
+  { label: "Consolas", value: 'Consolas, "Cascadia Mono", monospace' },
+  {
+    label: "Monospace système",
+    value: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace',
+  },
+];
+
+const TERMINAL_FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20];
+
 /**
  * Centered fullscreen settings modal with left navigation and scrollable
  * content pane. The previous drawer overflowed as the feature surface grew;
@@ -170,6 +186,8 @@ export function SettingsView({ open, onClose }: Props) {
 function SectionContent({ section }: { section: SectionId }) {
   const appTheme = useSettingsStore((s) => s.appTheme);
   const terminalTheme = useSettingsStore((s) => s.terminalTheme);
+  const terminalFontSize = useSettingsStore((s) => s.terminalFontSize);
+  const terminalFontFamily = useSettingsStore((s) => s.terminalFontFamily);
   const showHidden = useSettingsStore((s) => s.showHiddenFiles);
   const autoRestore = useSettingsStore((s) => s.autoRestoreSessions);
   const historyScope = useSettingsStore((s) => s.commandHistoryScope);
@@ -207,15 +225,47 @@ function SectionContent({ section }: { section: SectionId }) {
       );
     case "terminal":
       return (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs text-(--color-muted)">
-            Palette des terminaux xterm.js — indépendante de l'apparence générale.
-          </p>
-          <ThemeGrid
-            selectedId={terminalTheme}
-            onSelect={(id) => setSetting("terminalTheme", id)}
-            renderPreview={(t) => <TerminalPreview theme={t.terminal} />}
-          />
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 rounded-md border border-(--color-border) bg-(--color-bg-soft) p-2.5">
+              <span className="text-[11px] font-medium text-(--color-text)">Police</span>
+              <select
+                value={terminalFontFamily}
+                onChange={(e) => setSetting("terminalFontFamily", e.currentTarget.value)}
+                className="h-7 rounded-md border border-(--color-border) bg-(--color-panel) px-1.5 text-[11px] outline-none focus:border-(--color-accent)"
+              >
+                {TERMINAL_FONTS.map((f) => (
+                  <option key={f.label} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 rounded-md border border-(--color-border) bg-(--color-bg-soft) p-2.5">
+              <span className="text-[11px] font-medium text-(--color-text)">Taille</span>
+              <select
+                value={terminalFontSize}
+                onChange={(e) => setSetting("terminalFontSize", Number(e.currentTarget.value))}
+                className="h-7 rounded-md border border-(--color-border) bg-(--color-panel) px-1.5 text-[11px] outline-none focus:border-(--color-accent)"
+              >
+                {TERMINAL_FONT_SIZES.map((s) => (
+                  <option key={s} value={s}>
+                    {s} px
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-(--color-muted)">
+              Palette des terminaux — indépendante de l'apparence générale.
+            </p>
+            <ThemeGrid
+              selectedId={terminalTheme}
+              onSelect={(id) => setSetting("terminalTheme", id)}
+              renderPreview={(t) => <TerminalPreview theme={t.terminal} />}
+            />
+          </div>
         </div>
       );
     case "files":

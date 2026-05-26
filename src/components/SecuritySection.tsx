@@ -166,6 +166,7 @@ function SetMasterDialog({
         loading: "Activation…",
         success: "PIN activé",
       });
+      void useSettingsStore.getState().set("pinLength", pw1.length);
       onDone();
       onOpenChange(false);
     } catch (err) {
@@ -270,6 +271,7 @@ function ChangeMasterDialog({
         loading: "Modification…",
         success: "PIN modifié",
       });
+      void useSettingsStore.getState().set("pinLength", pw1.length);
       onDone();
       onOpenChange(false);
     } catch (err) {
@@ -369,6 +371,7 @@ function DisableMasterDialog({
         loading: "Désactivation…",
         success: "PIN désactivé",
       });
+      void useSettingsStore.getState().set("pinLength", null);
       onDone();
       onOpenChange(false);
     } catch (err) {
