@@ -4,6 +4,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versionnemen
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-05-25
+
+### Corrigé
+- **Plus de crash au lancement après une mise à jour** : les checksums de migration sqlx sont auto-réalignés au démarrage (on se fie au numéro de version, pas aux octets du fichier `.sql` qui varient selon le build/plateforme).
+- **Plus de fermeture silencieuse** : toute erreur de démarrage affiche désormais un message natif clair ; si la base de données est en cause, une réinitialisation (non destructive pour les clés SSH / le keychain) est proposée.
+
+### Ajouté
+- **« Quoi de neuf »** : une fenêtre dismissible récapitule les nouveautés après chaque mise à jour.
+
 ## [1.0.1] - 2026-05-25
 
 ### Corrigé

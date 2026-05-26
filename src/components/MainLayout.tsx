@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { getVersion } from "@tauri-apps/api/app";
 import { toast } from "sonner";
 
 import { withToast } from "@/lib/feedback";
 import { keyvaultApi } from "@/lib/keyvault";
 import { checkForUpdate, installUpdate } from "@/lib/updater";
 import { useShortcuts } from "@/lib/useShortcuts";
+import { type WhatsNewEntry, whatsNewSince } from "@/lib/whatsNew";
 import { useGroupsStore } from "@/stores/useGroupsStore";
 import { useIdentitiesStore } from "@/stores/useIdentitiesStore";
 import { useKeybindingsStore } from "@/stores/useKeybindingsStore";
@@ -39,6 +41,7 @@ import { SnippetsPanel } from "./SnippetsPanel";
 import { TabsBar } from "./TabsBar";
 import { TransferPanel } from "./TransferPanel";
 import { UnlockOverlay } from "./UnlockOverlay";
+import { WhatsNewDialog } from "./WhatsNewDialog";
 import { Workspace } from "./Workspace";
 
 import type { Host } from "@/lib/bindings/Host";
@@ -72,6 +75,7 @@ export function MainLayout() {
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [restoreEvaluated, setRestoreEvaluated] = useState(false);
   const [forwardsForHost, setForwardsForHost] = useState<Host | null>(null);
+  const [whatsNew, setWhatsNew] = useState<WhatsNewEntry[] | null>(null);
 
   useEffect(() => {
     hydrate();
@@ -157,6 +161,38 @@ export function MainLayout() {
   useEffect(() => {
     setSetting("lastActiveTabId", activeTabId);
   }, [activeTabId, setSetting]);
+
+  // « Quoi de neuf » : après une mise à jour, si la version courante diffère de
+  // la dernière vue, on affiche les nouveautés. Première exécution (aucune
+  // version enregistrée) → on enregistre en silence, sans modale.
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    void (async () => {
+      let current: string;
+      try {
+        current = await getVersion();
+      } catch {
+        return;
+      }
+      if (cancelled) return;
+      const seen = useSettingsStore.getState().lastSeenVersion;
+      if (!seen) {
+        void setSetting("lastSeenVersion", current);
+        return;
+      }
+      if (seen === current) return;
+      const entries = whatsNewSince(seen);
+      if (entries.length > 0) {
+        setWhatsNew(entries);
+      } else {
+        void setSetting("lastSeenVersion", current);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, setSetting]);
 
   // Persist the list of open tabs every time it changes so we can offer to
   // restore them on next launch. The snapshot keeps only what we can recreate
@@ -330,6 +366,11 @@ export function MainLayout() {
     });
   }, [openLocalTab]);
 
+  const closeWhatsNew = useCallback(() => {
+    setWhatsNew(null);
+    void getVersion().then((v) => setSetting("lastSeenVersion", v));
+  }, [setSetting]);
+
   return (
     <div className="flex h-screen w-screen flex-col bg-(--color-bg) text-(--color-text)">
       <Header
@@ -418,6 +459,8 @@ export function MainLayout() {
 
       <SnippetsPanel open={snippetsOpen} onOpenChange={setSnippetsOpen} />
       <CommandHistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} />
+
+      {whatsNew && <WhatsNewDialog entries={whatsNew} onClose={closeWhatsNew} />}
 
       <UnlockOverlay />
     </div>

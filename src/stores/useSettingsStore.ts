@@ -53,6 +53,12 @@ type Settings = {
    * it on does nothing observable until a future release ships the reporter.
    */
   crashReportingOptIn: boolean;
+  /**
+   * Dernière version de l'app vue par l'utilisateur. Sert à déclencher la
+   * modale « Quoi de neuf » après une mise à jour. `null` = jamais enregistré
+   * (première exécution avec cette fonctionnalité → on enregistre en silence).
+   */
+  lastSeenVersion: string | null;
 };
 
 const DEFAULTS: Settings = {
@@ -69,6 +75,7 @@ const DEFAULTS: Settings = {
   commandHistoryScope: "host",
   bellNotifications: "focus-only",
   crashReportingOptIn: false,
+  lastSeenVersion: null,
 };
 
 type SettingsState = Settings & {
@@ -91,6 +98,7 @@ const KEY_MAP: Record<keyof Settings, string> = {
   commandHistoryScope: "command_history_scope",
   bellNotifications: "bell_notifications",
   crashReportingOptIn: "crash_reporting_opt_in",
+  lastSeenVersion: "last_seen_version",
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({

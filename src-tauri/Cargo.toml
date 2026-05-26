@@ -1,6 +1,6 @@
 [package]
 name = "lynk"
-version = "1.0.1"
+version = "1.0.2"
 description = "Client SSH/SFTP desktop libre — local-first, chiffré, sans cloud"
 authors = ["Lynk Client contributors"]
 edition = "2021"
@@ -69,7 +69,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 window-vibrancy = "0.6"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Graphics_Dwm", "Win32_Foundation"] }
+windows-sys = { version = "0.59", features = ["Win32_Graphics_Dwm", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
