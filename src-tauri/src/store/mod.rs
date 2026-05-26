@@ -1,7 +1,7 @@
 //! Persistence layer: SQLite pool + migrations + DAOs.
 
-mod db;
 pub mod command_history;
+mod db;
 pub mod groups;
 pub mod hosts;
 pub mod identities;

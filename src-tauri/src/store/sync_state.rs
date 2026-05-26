@@ -10,10 +10,11 @@ const COLS: &str = "repo_url, branch, auth_method, enabled, last_remote_sha,
                     last_pushed_at, last_pulled_at, last_error";
 
 pub async fn get(pool: &DbPool) -> Result<Option<SyncState>> {
-    let row = sqlx::query_as::<_, SyncState>(&format!("SELECT {COLS} FROM sync_state WHERE id = 1"))
-        .fetch_optional(pool)
-        .await
-        .context("fetch sync_state")?;
+    let row =
+        sqlx::query_as::<_, SyncState>(&format!("SELECT {COLS} FROM sync_state WHERE id = 1"))
+            .fetch_optional(pool)
+            .await
+            .context("fetch sync_state")?;
     Ok(row)
 }
 

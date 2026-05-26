@@ -20,11 +20,12 @@ pub async fn list(pool: &DbPool) -> Result<Vec<Identity>> {
 }
 
 pub async fn get(pool: &DbPool, id: &str) -> Result<Identity> {
-    let row = sqlx::query_as::<_, Identity>(&format!("SELECT {COLS} FROM identities WHERE id = ?1"))
-        .bind(id)
-        .fetch_one(pool)
-        .await
-        .with_context(|| format!("fetch identity {id}"))?;
+    let row =
+        sqlx::query_as::<_, Identity>(&format!("SELECT {COLS} FROM identities WHERE id = ?1"))
+            .bind(id)
+            .fetch_one(pool)
+            .await
+            .with_context(|| format!("fetch identity {id}"))?;
     Ok(row)
 }
 
@@ -69,23 +70,21 @@ pub async fn delete(pool: &DbPool, id: &str) -> Result<bool> {
 }
 
 /// Replace the ordered set of keys attached to an identity.
-pub async fn set_identity_keys(
-    pool: &DbPool,
-    identity_id: &str,
-    key_ids: &[String],
-) -> Result<()> {
+pub async fn set_identity_keys(pool: &DbPool, identity_id: &str, key_ids: &[String]) -> Result<()> {
     let mut tx = pool.begin().await?;
     sqlx::query("DELETE FROM identity_keys WHERE identity_id = ?1")
         .bind(identity_id)
         .execute(&mut *tx)
         .await?;
     for (i, key_id) in key_ids.iter().enumerate() {
-        sqlx::query("INSERT INTO identity_keys (identity_id, key_id, priority) VALUES (?1, ?2, ?3)")
-            .bind(identity_id)
-            .bind(key_id)
-            .bind(i as i32)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query(
+            "INSERT INTO identity_keys (identity_id, key_id, priority) VALUES (?1, ?2, ?3)",
+        )
+        .bind(identity_id)
+        .bind(key_id)
+        .bind(i as i32)
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     Ok(())

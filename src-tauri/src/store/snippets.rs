@@ -7,7 +7,8 @@ use crate::models::{Snippet, SnippetInput};
 
 use super::DbPool;
 
-const COLS: &str = "id, name, content, folder, tags_csv, variables_schema_json, created_at, updated_at";
+const COLS: &str =
+    "id, name, content, folder, tags_csv, variables_schema_json, created_at, updated_at";
 
 pub async fn list(pool: &DbPool) -> Result<Vec<Snippet>> {
     let rows = sqlx::query_as::<_, Snippet>(&format!(

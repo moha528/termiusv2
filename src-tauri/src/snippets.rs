@@ -68,7 +68,9 @@ fn parse_name(bytes: &[u8], start: usize) -> Option<(String, usize)> {
         i += 1;
     }
     if i + 1 < bytes.len() && bytes[i] == b'}' && bytes[i + 1] == b'}' {
-        let name = std::str::from_utf8(&bytes[name_start..name_end]).ok()?.to_string();
+        let name = std::str::from_utf8(&bytes[name_start..name_end])
+            .ok()?
+            .to_string();
         Some((name, i + 2))
     } else {
         None

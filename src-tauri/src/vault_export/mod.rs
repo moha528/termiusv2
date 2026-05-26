@@ -168,8 +168,13 @@ pub fn decrypt_bundle(buf: &[u8], password: &str) -> Result<VaultBundle> {
 
 fn derive_key(password: &str, salt: &[u8]) -> Result<[u8; KEY_LEN]> {
     let mut out = [0u8; KEY_LEN];
-    let params = Params::new(Params::DEFAULT_M_COST, Params::DEFAULT_T_COST, Params::DEFAULT_P_COST, Some(KEY_LEN))
-        .map_err(|e| anyhow::anyhow!("argon2 params: {e}"))?;
+    let params = Params::new(
+        Params::DEFAULT_M_COST,
+        Params::DEFAULT_T_COST,
+        Params::DEFAULT_P_COST,
+        Some(KEY_LEN),
+    )
+    .map_err(|e| anyhow::anyhow!("argon2 params: {e}"))?;
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     argon2
         .hash_password_into(password.as_bytes(), salt, &mut out)
@@ -194,13 +199,17 @@ pub async fn apply_bundle(
 
     if matches!(mode, ImportMode::Replace) {
         // Ordre : enfants → parents (FK).
-        sqlx::query("DELETE FROM port_forwards").execute(pool).await?;
+        sqlx::query("DELETE FROM port_forwards")
+            .execute(pool)
+            .await?;
         sqlx::query("DELETE FROM host_tags").execute(pool).await?;
         sqlx::query("DELETE FROM snippets").execute(pool).await?;
         // hosts → identities : hosts.identity_id ON DELETE SET NULL, donc
         // on peut supprimer dans l'ordre hosts puis identities sans coup
         // dur sur les FK.
-        let prev_hosts: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM hosts").fetch_one(pool).await?;
+        let prev_hosts: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM hosts")
+            .fetch_one(pool)
+            .await?;
         stats.hosts_replaced = prev_hosts as usize;
         sqlx::query("DELETE FROM hosts").execute(pool).await?;
         sqlx::query("DELETE FROM identities").execute(pool).await?;
@@ -210,19 +219,36 @@ pub async fn apply_bundle(
 
     // Index existants → pour le mode merge on saute les entrées dont la
     // clé business est déjà prise.
-    let existing_group_names = name_set(groups_dao::list(pool).await?.iter().map(|g| g.name.clone()));
+    let existing_group_names =
+        name_set(groups_dao::list(pool).await?.iter().map(|g| g.name.clone()));
     let existing_tag_names = name_set(tags_dao::list(pool).await?.iter().map(|t| t.name.clone()));
-    let existing_identity_names = name_set(identities_dao::list(pool).await?.iter().map(|i| i.name.clone()));
-    let existing_host_labels = name_set(hosts_dao::list(pool).await?.iter().map(|h| h.label.clone()));
-    let existing_snippet_names = name_set(snippets_dao::list(pool).await?.iter().map(|s| s.name.clone()));
+    let existing_identity_names = name_set(
+        identities_dao::list(pool)
+            .await?
+            .iter()
+            .map(|i| i.name.clone()),
+    );
+    let existing_host_labels =
+        name_set(hosts_dao::list(pool).await?.iter().map(|h| h.label.clone()));
+    let existing_snippet_names = name_set(
+        snippets_dao::list(pool)
+            .await?
+            .iter()
+            .map(|s| s.name.clone()),
+    );
 
     // ---- Groups (parents) ----
-    let mut group_remap: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut group_remap: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     for g in &bundle.groups {
         if matches!(mode, ImportMode::Merge) && existing_group_names.contains(&normalise(&g.name)) {
             // Map the imported id to the existing group with the same name
             // so child hosts can still resolve their group.
-            if let Some(existing) = groups_dao::list(pool).await?.into_iter().find(|x| normalise(&x.name) == normalise(&g.name)) {
+            if let Some(existing) = groups_dao::list(pool)
+                .await?
+                .into_iter()
+                .find(|x| normalise(&x.name) == normalise(&g.name))
+            {
                 group_remap.insert(g.id.clone(), existing.id);
             }
             continue;
@@ -248,21 +274,39 @@ pub async fn apply_bundle(
     let mut tag_remap: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     for t in &bundle.tags {
         if matches!(mode, ImportMode::Merge) && existing_tag_names.contains(&normalise(&t.name)) {
-            if let Some(existing) = tags_dao::list(pool).await?.into_iter().find(|x| normalise(&x.name) == normalise(&t.name)) {
+            if let Some(existing) = tags_dao::list(pool)
+                .await?
+                .into_iter()
+                .find(|x| normalise(&x.name) == normalise(&t.name))
+            {
                 tag_remap.insert(t.id.clone(), existing.id);
             }
             continue;
         }
-        let created = tags_dao::create(pool, TagInput { name: t.name.clone(), color: t.color.clone() }).await?;
+        let created = tags_dao::create(
+            pool,
+            TagInput {
+                name: t.name.clone(),
+                color: t.color.clone(),
+            },
+        )
+        .await?;
         tag_remap.insert(t.id.clone(), created.id);
         stats.tags_added += 1;
     }
 
     // ---- Identities ----
-    let mut identity_remap: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut identity_remap: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     for i in &bundle.identities {
-        if matches!(mode, ImportMode::Merge) && existing_identity_names.contains(&normalise(&i.name)) {
-            if let Some(existing) = identities_dao::list(pool).await?.into_iter().find(|x| normalise(&x.name) == normalise(&i.name)) {
+        if matches!(mode, ImportMode::Merge)
+            && existing_identity_names.contains(&normalise(&i.name))
+        {
+            if let Some(existing) = identities_dao::list(pool)
+                .await?
+                .into_iter()
+                .find(|x| normalise(&x.name) == normalise(&i.name))
+            {
                 identity_remap.insert(i.id.clone(), existing.id);
             }
             continue;
@@ -281,11 +325,17 @@ pub async fn apply_bundle(
     }
 
     // ---- Hosts ----
-    let mut host_remap: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut host_remap: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     // First pass : create hosts WITHOUT proxy_jump_host_id (forward refs).
     for h in &bundle.hosts {
-        if matches!(mode, ImportMode::Merge) && existing_host_labels.contains(&normalise(&h.label)) {
-            if let Some(existing) = hosts_dao::list(pool).await?.into_iter().find(|x| normalise(&x.label) == normalise(&h.label)) {
+        if matches!(mode, ImportMode::Merge) && existing_host_labels.contains(&normalise(&h.label))
+        {
+            if let Some(existing) = hosts_dao::list(pool)
+                .await?
+                .into_iter()
+                .find(|x| normalise(&x.label) == normalise(&h.label))
+            {
                 host_remap.insert(h.id.clone(), existing.id);
             }
             continue;
@@ -295,9 +345,15 @@ pub async fn apply_bundle(
             hostname: h.hostname.clone(),
             port: h.port,
             username: h.username.clone(),
-            group_id: h.group_id.as_ref().and_then(|gid| group_remap.get(gid).cloned()),
+            group_id: h
+                .group_id
+                .as_ref()
+                .and_then(|gid| group_remap.get(gid).cloned()),
             proxy_jump_host_id: None,
-            identity_id: h.identity_id.as_ref().and_then(|iid| identity_remap.get(iid).cloned()),
+            identity_id: h
+                .identity_id
+                .as_ref()
+                .and_then(|iid| identity_remap.get(iid).cloned()),
             agent_forward: h.agent_forward,
             log_to_file: h.log_to_file,
             pre_connect_script: h.pre_connect_script.clone(),
@@ -327,7 +383,9 @@ pub async fn apply_bundle(
 
     // ---- host_tags ----
     for link in &bundle.host_tags {
-        let (Some(host_id), Some(tag_id)) = (host_remap.get(&link.host_id), tag_remap.get(&link.tag_id)) else {
+        let (Some(host_id), Some(tag_id)) =
+            (host_remap.get(&link.host_id), tag_remap.get(&link.tag_id))
+        else {
             continue;
         };
         sqlx::query("INSERT OR IGNORE INTO host_tags (host_id, tag_id) VALUES (?1, ?2)")
@@ -339,7 +397,8 @@ pub async fn apply_bundle(
 
     // ---- Snippets ----
     for s in &bundle.snippets {
-        if matches!(mode, ImportMode::Merge) && existing_snippet_names.contains(&normalise(&s.name)) {
+        if matches!(mode, ImportMode::Merge) && existing_snippet_names.contains(&normalise(&s.name))
+        {
             continue;
         }
         snippets_dao::create(

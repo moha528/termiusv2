@@ -121,11 +121,7 @@ pub async fn test_connection(input: &SyncConfigInput) -> Result<()> {
 
 // ---------- Push ----------
 
-pub async fn push_now(
-    pool: &DbPool,
-    app_data_dir: &Path,
-    password: &str,
-) -> Result<SyncResult> {
+pub async fn push_now(pool: &DbPool, app_data_dir: &Path, password: &str) -> Result<SyncResult> {
     let Some(state) = sync_dao::get(pool).await? else {
         anyhow::bail!("sync non configurée");
     };
@@ -139,8 +135,8 @@ pub async fn push_now(
 
     // Snapshot + encrypt → vault.enc dans le workdir.
     let bundle = vex::snapshot(pool).await?;
-    let bytes = vex::encrypt_bundle(&bundle, password)
-        .map_err(|e| anyhow::anyhow!("encrypt: {e}"))?;
+    let bytes =
+        vex::encrypt_bundle(&bundle, password).map_err(|e| anyhow::anyhow!("encrypt: {e}"))?;
     tokio::fs::write(workdir.join(VAULT_FILENAME), &bytes)
         .await
         .context("write vault.enc")?;
@@ -158,13 +154,18 @@ pub async fn push_now(
         });
     }
 
-    let message = format!(
-        "lynk sync {}",
-        chrono::Utc::now().to_rfc3339()
-    );
+    let message = format!("lynk sync {}", chrono::Utc::now().to_rfc3339());
     run_git(
         &workdir,
-        ["-c", "user.email=sync@lynk.app", "-c", "user.name=Lynk Client", "commit", "-m", &message],
+        [
+            "-c",
+            "user.email=sync@lynk.app",
+            "-c",
+            "user.name=Lynk Client",
+            "commit",
+            "-m",
+            &message,
+        ],
     )
     .await?;
     run_git(&workdir, ["push", "--set-upstream", &url, &state.branch]).await?;
@@ -179,11 +180,7 @@ pub async fn push_now(
 
 // ---------- Pull ----------
 
-pub async fn pull_now(
-    pool: &DbPool,
-    app_data_dir: &Path,
-    password: &str,
-) -> Result<SyncResult> {
+pub async fn pull_now(pool: &DbPool, app_data_dir: &Path, password: &str) -> Result<SyncResult> {
     let Some(state) = sync_dao::get(pool).await? else {
         anyhow::bail!("sync non configurée");
     };
@@ -215,9 +212,11 @@ pub async fn pull_now(
     if !vault_path.exists() {
         anyhow::bail!("le repo distant n'a pas de vault.enc");
     }
-    let bytes = tokio::fs::read(&vault_path).await.context("read vault.enc")?;
-    let bundle = vex::decrypt_bundle(&bytes, password)
-        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let bytes = tokio::fs::read(&vault_path)
+        .await
+        .context("read vault.enc")?;
+    let bundle =
+        vex::decrypt_bundle(&bytes, password).map_err(|e| anyhow::anyhow!(e.to_string()))?;
     // Mode replace : on remplace tout par le contenu remote.
     let stats = vex::apply_bundle(pool, &bundle, vex::ImportMode::Replace).await?;
     sync_dao::set_last_pulled(pool, &remote_sha).await?;

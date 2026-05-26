@@ -5,9 +5,7 @@ use std::path::PathBuf;
 use tauri::State;
 
 use crate::store::DbPool;
-use crate::vault_export::{
-    self as vex, ImportMode, ImportStats,
-};
+use crate::vault_export::{self as vex, ImportMode, ImportStats};
 use crate::AppError;
 
 /// Snapshot + chiffrement + écriture sur disque. Renvoie le nombre d'octets
@@ -51,8 +49,7 @@ pub async fn import_vault(
             )))
         }
     };
-    let buf = std::fs::read(&path)
-        .map_err(|e| AppError(anyhow::anyhow!("read {path}: {e}")))?;
+    let buf = std::fs::read(&path).map_err(|e| AppError(anyhow::anyhow!("read {path}: {e}")))?;
     let bundle = vex::decrypt_bundle(&buf, &password)
         .map_err(|e| AppError(anyhow::anyhow!(e.to_string())))?;
     let stats = vex::apply_bundle(pool.inner(), &bundle, mode)

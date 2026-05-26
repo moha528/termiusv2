@@ -71,9 +71,7 @@ async fn reconcile_migration_checksums(pool: &DbPool) -> Result<()> {
             .bind(migration.version)
             .execute(pool)
             .await
-            .with_context(|| {
-                format!("reconciling checksum for migration {}", migration.version)
-            })?;
+            .with_context(|| format!("reconciling checksum for migration {}", migration.version))?;
     }
     Ok(())
 }
