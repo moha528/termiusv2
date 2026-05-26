@@ -4,6 +4,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versionnemen
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-05-26
+
+### Ajouté
+- **Icône de zone de notification (tray)** : menu Ouvrir / Quitter, clic gauche pour rouvrir la fenêtre.
+- **Comportement à la fermeture configurable** (Réglages › Apparence) : réduire dans la zone de notification, réduire, quitter, ou « toujours demander » avec option « se souvenir de mon choix ».
+
 ## [1.0.2] - 2026-05-25
 
 ### Corrigé

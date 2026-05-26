@@ -11,6 +11,16 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: "1.0.3",
+    date: "2026-05-26",
+    title: "Zone de notification",
+    items: [
+      "Icône dans la zone de notification (tray) : garde Lynk ouvert en arrière-plan, clic pour rouvrir.",
+      "Choisis ce qui se passe à la fermeture — réduire au tray, réduire, ou quitter — depuis Réglages › Apparence.",
+      "Par défaut, l'app te demande (avec une option « se souvenir de mon choix »).",
+    ],
+  },
+  {
     version: "1.0.2",
     date: "2026-05-25",
     title: "Démarrage blindé",

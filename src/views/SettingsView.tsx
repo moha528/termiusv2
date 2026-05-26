@@ -174,19 +174,34 @@ function SectionContent({ section }: { section: SectionId }) {
   const autoRestore = useSettingsStore((s) => s.autoRestoreSessions);
   const historyScope = useSettingsStore((s) => s.commandHistoryScope);
   const bellNotifications = useSettingsStore((s) => s.bellNotifications);
+  const closeBehavior = useSettingsStore((s) => s.closeBehavior);
   const setSetting = useSettingsStore((s) => s.set);
 
   switch (section) {
     case "appearance":
       return (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs text-(--color-muted)">
-            Palette utilisée par la sidebar, les dialogs et la zone principale.
-          </p>
-          <ThemeGrid
-            selectedId={appTheme}
-            onSelect={(id) => setSetting("appTheme", id)}
-            renderPreview={(t) => <AppPreview palette={t.app} />}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-(--color-muted)">
+              Palette utilisée par la sidebar, les dialogs et la zone principale.
+            </p>
+            <ThemeGrid
+              selectedId={appTheme}
+              onSelect={(id) => setSetting("appTheme", id)}
+              renderPreview={(t) => <AppPreview palette={t.app} />}
+            />
+          </div>
+          <Choice
+            label="À la fermeture de la fenêtre"
+            description="Que faire quand tu cliques sur la croix. La zone de notification garde l'app en arrière-plan."
+            value={closeBehavior}
+            options={[
+              { value: "ask", label: "Demander", hint: "défaut" },
+              { value: "tray", label: "Zone de notif." },
+              { value: "minimize", label: "Réduire" },
+              { value: "quit", label: "Quitter" },
+            ]}
+            onChange={(v) => setSetting("closeBehavior", v as "ask" | "tray" | "minimize" | "quit")}
           />
         </div>
       );

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { exit } from "@tauri-apps/plugin-process";
 import { toast } from "sonner";
 
 import { withToast } from "@/lib/feedback";
@@ -26,6 +28,7 @@ import { SettingsView } from "@/views/SettingsView";
 
 import { cn } from "@/lib/utils";
 
+import { type CloseAction, CloseActionDialog } from "./CloseActionDialog";
 import { CommandHistoryDialog } from "./CommandHistoryDialog";
 import { CommandPalette } from "./CommandPalette";
 import { ConnectDialog, type ConnectTarget } from "./ConnectDialog";
@@ -76,6 +79,7 @@ export function MainLayout() {
   const [restoreEvaluated, setRestoreEvaluated] = useState(false);
   const [forwardsForHost, setForwardsForHost] = useState<Host | null>(null);
   const [whatsNew, setWhatsNew] = useState<WhatsNewEntry[] | null>(null);
+  const [closeAsk, setCloseAsk] = useState(false);
 
   useEffect(() => {
     hydrate();
@@ -371,6 +375,44 @@ export function MainLayout() {
     void getVersion().then((v) => setSetting("lastSeenVersion", v));
   }, [setSetting]);
 
+  // Exécute l'action de fermeture choisie.
+  const applyCloseAction = useCallback(async (action: CloseAction) => {
+    const win = getCurrentWindow();
+    if (action === "tray") await win.hide();
+    else if (action === "minimize") await win.minimize();
+    else await exit(0);
+  }, []);
+
+  // Intercepte le clic sur la croix : selon le réglage, on réduit au tray,
+  // on réduit, on quitte, ou on demande (modale).
+  useEffect(() => {
+    const win = getCurrentWindow();
+    let unlisten: (() => void) | undefined;
+    void win
+      .onCloseRequested(async (event) => {
+        const behavior = useSettingsStore.getState().closeBehavior;
+        event.preventDefault();
+        if (behavior === "ask") {
+          setCloseAsk(true);
+        } else {
+          await applyCloseAction(behavior);
+        }
+      })
+      .then((u) => {
+        unlisten = u;
+      });
+    return () => unlisten?.();
+  }, [applyCloseAction]);
+
+  const onCloseChoice = useCallback(
+    (action: CloseAction, remember: boolean) => {
+      setCloseAsk(false);
+      if (remember) void setSetting("closeBehavior", action);
+      void applyCloseAction(action);
+    },
+    [applyCloseAction, setSetting],
+  );
+
   return (
     <div className="flex h-screen w-screen flex-col bg-(--color-bg) text-(--color-text)">
       <Header
@@ -461,6 +503,12 @@ export function MainLayout() {
       <CommandHistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} />
 
       {whatsNew && <WhatsNewDialog entries={whatsNew} onClose={closeWhatsNew} />}
+
+      <CloseActionDialog
+        open={closeAsk}
+        onAction={onCloseChoice}
+        onCancel={() => setCloseAsk(false)}
+      />
 
       <UnlockOverlay />
     </div>

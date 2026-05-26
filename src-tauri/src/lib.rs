@@ -25,6 +25,8 @@ mod window_chrome;
 
 pub use error::AppError;
 
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -80,6 +82,11 @@ pub fn run() {
             app.manage(edit::EditRegistry::default());
             app.manage(port_forward::ForwardRegistry::default());
             app.manage(command_capture::CommandCapture::default());
+
+            // Icône de zone de notification (tray). Non bloquant si ça échoue.
+            if let Err(e) = build_tray(app.handle()) {
+                tracing::warn!("tray setup failed: {e}");
+            }
 
             #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
@@ -278,4 +285,45 @@ fn init_pool_or_recover(db_path: &std::path::Path) -> store::DbPool {
             }
         }
     }
+}
+
+/// Affiche et met au premier plan la fenêtre principale (depuis le tray).
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+/// Crée l'icône de zone de notification (tray) avec un menu Ouvrir / Quitter.
+/// Clic gauche → ouvre la fenêtre ; clic droit → menu.
+fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let show = MenuItem::with_id(app, "tray-show", "Ouvrir Lynk Client", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "tray-quit", "Quitter", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &quit])?;
+
+    TrayIconBuilder::with_id("lynk-tray")
+        .icon(tauri::include_image!("icons/128x128.png"))
+        .tooltip("Lynk Client")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "tray-show" => show_main_window(app),
+            "tray-quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main_window(tray.app_handle());
+            }
+        })
+        .build(app)?;
+
+    Ok(())
 }

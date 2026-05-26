@@ -59,6 +59,14 @@ type Settings = {
    * (première exécution avec cette fonctionnalité → on enregistre en silence).
    */
   lastSeenVersion: string | null;
+  /**
+   * Action au clic sur la croix de fermeture :
+   *  - "ask": demande à chaque fois (réduire au tray / réduire / quitter)
+   *  - "tray": réduire dans la zone de notification (app en arrière-plan)
+   *  - "minimize": réduire la fenêtre normalement
+   *  - "quit": quitter l'application
+   */
+  closeBehavior: "ask" | "tray" | "minimize" | "quit";
 };
 
 const DEFAULTS: Settings = {
@@ -76,6 +84,7 @@ const DEFAULTS: Settings = {
   bellNotifications: "focus-only",
   crashReportingOptIn: false,
   lastSeenVersion: null,
+  closeBehavior: "ask",
 };
 
 type SettingsState = Settings & {
@@ -99,6 +108,7 @@ const KEY_MAP: Record<keyof Settings, string> = {
   bellNotifications: "bell_notifications",
   crashReportingOptIn: "crash_reporting_opt_in",
   lastSeenVersion: "last_seen_version",
+  closeBehavior: "close_behavior",
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
